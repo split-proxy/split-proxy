@@ -1,0 +1,110 @@
+services:
+  migration:
+    build: ./admin/back
+    container_name: admin_migration
+    env_file:
+      - .env
+    depends_on:
+      proxy_postgres:
+        condition: service_healthy
+    restart: "no"
+    command: python manage.py migrate --noinput
+
+  collectstatic:
+    build: ./admin/back
+    container_name: admin_collectstatic
+    env_file:
+      - .env
+    command: python manage.py collectstatic --noinput
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+    restart: "no"
+
+  admin_back:
+    build: ./admin/back
+    container_name: admin_back
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      collectstatic:
+        condition: service_completed_successfully
+
+  admin_front:
+    build: ./admin/front
+    container_name: admin_front
+    restart: always
+    ports:
+      - "${FRONT_PORT}:80"
+    env_file:
+      - .env
+    depends_on:
+      admin_back:
+        condition: service_started
+
+  broker:
+    build: ./broker
+    container_name: broker
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${BROKER_PORT}:${BROKER_PORT}"
+    depends_on:
+      admin_back:
+        condition: service_started
+
+  proxy:
+    build: ./proxy
+    container_name: proxy
+    restart: always
+    ports:
+      - "${PROXY_PORT}:${PROXY_PORT}"
+    env_file:
+      - .env
+    volumes:
+    - ${CERTS_DIR}:/app/certs:ro
+    depends_on:
+      broker:
+        condition: service_started
+      proxy_redis:
+        condition: service_healthy
+
+  proxy_postgres:
+    image: postgres:17
+    container_name: proxy_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  proxy_redis:
+    image: redis:8
+    container_name: proxy_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: ${POSTGRES_VOLUME}
+
+  redis_data:
+    name: ${REDIS_VOLUME}

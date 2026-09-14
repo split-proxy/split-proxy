@@ -1,0 +1,15 @@
+.DS_Store
+.env
+.env.worker
+*.vim
+*.lock
+*.pyc
+*.key
+*.crt
+*.cnf
+*.csr
+*.key
+*.srl
+certs/
+node_modules/
+__pycache__/

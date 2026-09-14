@@ -1,0 +1,6 @@
+[flake8]
+ignore = I002
+max-line-length = 160
+max-complexity = 10
+exclude =
+    migrations

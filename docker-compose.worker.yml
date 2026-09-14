@@ -1,0 +1,7 @@
+services:
+  worker:
+    build: ./worker
+    container_name: worker
+    restart: always
+    env_file:
+      - .env.worker

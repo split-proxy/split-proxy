@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"net/url"
 	"time"
 )
 
@@ -28,14 +29,14 @@ func main() {
 		}
 	}()
 
-	if databaseURL == "" {
-		errorf("[PROXY] DATABASE_URL is not set")
-		return
+	u := url.URL{
+			Scheme: "postgres",
+			Host:   net.JoinHostPort(dbHost, dbPort),
+			Path:   dbName,
 	}
+	u.User = url.UserPassword(dbUser, dbPassword)
 
-	infof("[PROXY] initializing auth store")
-
-	authStore, err := NewAuthStore(ctx, databaseURL)
+	authStore, err := NewAuthStore(ctx, u.String())
 	if err != nil {
 		errorf("[PROXY] failed to initialize auth store: %v", err)
 		return

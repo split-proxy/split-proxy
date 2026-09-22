@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"fmt"
 	"log"
 	"net"
@@ -342,14 +343,23 @@ func main() {
 		strings.ToLower(os.Getenv("LOG_LEVEL")),
 	)
 
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("[BROKER] DATABASE_URL is not set")
+	dbHost := os.Getenv("POSTGRES_HOST")
+	dbPort := os.Getenv("POSTGRES_PORT")
+	dbName := os.Getenv("POSTGRES_DB")
+	dbUser := os.Getenv("POSTGRES_USER")
+	dbPassword := os.Getenv("POSTGRES_PASSWORD")
+
+	u := url.URL{
+			Scheme: "postgres",
+			Host:   net.JoinHostPort(dbHost, dbPort),
+			Path:   dbName,
 	}
-
+	u.User = url.UserPassword(dbUser, dbPassword)
 	var err error
-
-	pool, err = pgxpool.New(ctx, dbURL)
+	pool, err = pgxpool.New(ctx, u.String())
+	if err != nil {
+			log.Fatalf("[BROKER] failed to create PostgreSQL pool: %v", err)
+	}
 	if err != nil {
 		log.Fatal("[BROKER] failed to create postgres pool:", err)
 	}

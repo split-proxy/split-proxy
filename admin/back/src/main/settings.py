@@ -9,14 +9,13 @@ env = environ.Env(
     DEBUG=(bool, False),
     DJANGO_SHOW_SWAGGER=(bool, False),
     DJANGO_STATIC_ROOT=(str, ''),
-    DJANGO_CSRF_TRUSTED_ORIGINS=(str, 'https://*'),
 )
 
 SHOW_SWAGGER = env('DJANGO_SHOW_SWAGGER')
 SECRET_KEY = env('DJANGO_SECRET_KEY')
 DEBUG = env('DEBUG')
-ALLOWED_HOSTS = [env('DJANGO_ALLOWED_HOSTS')]
-CSRF_TRUSTED_ORIGINS = [env('DJANGO_CSRF_TRUSTED_ORIGINS')]
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 PROJECT_APPS = [
     'core',
@@ -63,9 +62,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'main.wsgi.application'
 
-DATABASES = {
-    'default': env.db_url('DATABASE_URL')
-}
+if env.bool("TESTING", default=False):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "HOST": env("POSTGRES_HOST"),
+            "PORT": env("POSTGRES_PORT"),
+            "NAME": env("POSTGRES_DB"),
+            "USER": env("POSTGRES_USER"),
+            "PASSWORD": env("POSTGRES_PASSWORD"),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -110,7 +124,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'core.pagination.CustomPageNumberPagination',
 }
 
-REDIS_URL = env('REDIS_URL')
+REDIS_HOST = env("REDIS_HOST")
+REDIS_PORT = env.int("REDIS_PORT", default=6379)
+REDIS_DB = env.int("REDIS_DB", default=0)
+REDIS_PASSWORD = env("REDIS_PASSWORD", default="")
+
 DEFAULT_GROUP_NAME = env('DEFAULT_GROUP_NAME')
 DOMAINS_REDIS_KEY = env('DOMAINS_REDIS_KEY')
 CIDRS_REDIS_KEY = env('CIDRS_REDIS_KEY')

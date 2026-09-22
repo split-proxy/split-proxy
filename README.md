@@ -91,10 +91,14 @@ If both commands complete successfully, the Proxy is running and accepting conne
 
 Open the Admin Panel at the configured FRONT_PORT:
 
-1. Register the Worker.
-2. Create one or more Proxy accounts.
-3. Create the required groups.
-4. Configure the routing rules.
+1. Log in to the Admin Panel using the default administrator credentials:
+   * **Login:** `admin`
+   * **Password:** `simple-split-proxy-password`
+2. Register the Worker.
+3. Create one or more Proxy accounts.
+4. Create the required groups.
+5. Configure the routing rules.
+
 
 After the configuration is complete, repeat the Proxy tests from step 4 to verify that the selected routing configuration is applied.
 

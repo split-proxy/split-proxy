@@ -510,31 +510,6 @@ Proxy users are periodically synchronized from PostgreSQL, so changes made to Pr
 
 ---
 
-## Configuration
-
-The Proxy is configured through environment variables.
-
-| Variable                  | Description                                 |
-| ------------------------- | ------------------------------------------- |
-| `LISTEN_ADDR`             | Address the Proxy listens on                |
-| `UDP_RELAY_HOST`          | Address advertised for the SOCKS5 UDP relay |
-| `TLS_CERT_FILE`           | TLS certificate path                        |
-| `TLS_KEY_FILE`            | TLS private key path                        |
-| `BROKER_ADDR`             | Broker WebSocket address                    |
-| `RANDOM_ENDPOINT_SECRET`  | Broker/Worker endpoint secret               |
-| `PROXY_TOKEN`             | Proxy authentication token                  |
-| `DATABASE_URL`            | PostgreSQL connection string                |
-| `REDIS_URL`               | Redis connection URL                        |
-| `DEFAULT_GROUP_NAME`      | Name of the direct-routing group            |
-| `DOMAINS_REDIS_KEY`       | Redis key containing domain rules           |
-| `CIDRS_REDIS_KEY`         | Redis key containing CIDR rules             |
-| `DEFAULT_ROUTE_REDIS_KEY` | Redis key containing the default route      |
-| `LOG_LEVEL`               | Logging level                               |
-
-See `.env.example` for the complete configuration used by the project.
-
----
-
 ## Docker
 
 Build and start the Proxy:

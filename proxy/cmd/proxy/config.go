@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"context"
+	"net"
 	"log"
 	"os"
 	"strconv"
@@ -13,8 +14,8 @@ import (
 )
 
 const (
-	tlsCertFile = "server.crt"
-	tlsKeyFile  = "server.key"
+	tlsCertFile = "/app/certs/server.crt"
+	tlsKeyFile  = "/app/certs/server.key"
 
 	ProtocolDetectionTimeout = 10 * time.Second
 
@@ -86,14 +87,22 @@ var (
 	ctx = context.Background()
 
 	proxyToken = os.Getenv("PROXY_TOKEN")
-	listenAddr = os.Getenv("LISTEN_ADDR")
+
+	listenAddr = net.JoinHostPort(
+    os.Getenv("PROXY_LISTEN_IP"),
+    os.Getenv("PROXY_LISTEN_PORT"),
+	)
 
 	maxConnections = getEnvInt("MAX_CONNECTIONS", 1000)
 	connSem = make(chan struct{}, maxConnections)
 
 	UDPRelayHost = os.Getenv("UDP_RELAY_HOST")
 
-	databaseURL = os.Getenv("DATABASE_URL")
+	dbHost = os.Getenv("POSTGRES_HOST")
+	dbPort = os.Getenv("POSTGRES_PORT")
+	dbName = os.Getenv("POSTGRES_DB")
+	dbUser = os.Getenv("POSTGRES_USER")
+	dbPassword = os.Getenv("POSTGRES_PASSWORD")
 
 	RouteDirect Route = Route(os.Getenv("DEFAULT_GROUP_NAME"))
 
@@ -126,14 +135,24 @@ func init() {
 		log.Fatal("DEFAULT_GROUP_NAME environment variable is required")
 	}
 
-	brokerWS = os.Getenv("BROKER_ADDR") +
+	brokerWS = "ws://" + os.Getenv("BROKER_CONNECT_HOST") + ":" +  os.Getenv("BROKER_PORT") +
 		"/ws/proxy/" +
 		os.Getenv("RANDOM_ENDPOINT_SECRET")
 
-	opts, err := redis.ParseURL(os.Getenv("REDIS_URL"))
-	if err != nil {
-		errorf("failed to parse REDIS_URL: %v", err)
-		os.Exit(1)
+	db := 0
+	if value := os.Getenv("REDIS_DB"); value != "" {
+			var err error
+			db, err = strconv.Atoi(value)
+			if err != nil {
+					errorf("invalid REDIS_DB: %v", err)
+					os.Exit(1)
+			}
+	}
+
+	opts := &redis.Options{
+			Addr:     net.JoinHostPort(os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
+			Password: os.Getenv("REDIS_PASSWORD"),
+			DB:       db,
 	}
 
 	rdb = redis.NewClient(opts)

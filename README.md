@@ -82,7 +82,7 @@ curl --proxy http://test-proxy:test-proxy-password@127.0.0.1:8787 https://google
 #### SOCKS5
 
 ```bash
-curl --proxy socks5h://test-proxy:test-proxy-password@127.0.0.1:8888 https://google.com
+curl --proxy socks5h://test-proxy:test-proxy-password@127.0.0.1:8787 https://google.com
 ```
 
 If both commands complete successfully, the Proxy is running and accepting connections with the test credentials.

@@ -69,13 +69,23 @@ Start the Worker:
 docker-compose -f docker-compose.worker.yml up -d --build
 ```
 
-### 4. Create an Admin user
+### 4. Test the Proxy
 
-Create a Django superuser:
+Before configuring routing, you can verify that the Proxy is reachable and accepts the test credentials.
+
+#### HTTP / HTTPS
 
 ```bash
-docker exec -it admin_back python manage.py createsuperuser
+curl --proxy http://test-proxy:test-proxy-password@127.0.0.1:8787 https://google.com
 ```
+
+#### SOCKS5
+
+```bash
+curl --proxy socks5h://test-proxy:test-proxy-password@127.0.0.1:8888 https://google.com
+```
+
+If both commands complete successfully, the Proxy is running and accepting connections with the test credentials.
 
 ### 5. Configure the Proxy
 
@@ -86,41 +96,7 @@ Open the Admin Panel at the configured FRONT_PORT:
 3. Create the required groups.
 4. Configure the routing rules.
 
-At this point, the Proxy is ready to test.
-
-### 6. Test with `curl`
-
-#### HTTP / HTTPS
-
-```bash
-curl -v \
-  -x http://<USERNAME>:<PASSWORD>@127.0.0.1:<PROXY_PORT> \
-  https://example.com
-```
-
-#### SOCKS5
-
-```bash
-curl -v \
-  --proxy socks5h://<USERNAME>:<PASSWORD>@127.0.0.1:<PROXY_PORT> \
-  https://example.com
-```
-
-Replace:
-
-* `<USERNAME>` with the Proxy account username.
-* `<PASSWORD>` with the Proxy account password.
-* `<PROXY_PORT>` with the configured Proxy port.
-
-To check the public IP:
-
-```bash
-curl \
-  -x http://<USERNAME>:<PASSWORD>@127.0.0.1:<PROXY_PORT> \
-  https://api.ipify.org
-```
-
-If routing is configured correctly, the returned IP should correspond to the selected route or Worker.
+After the configuration is complete, repeat the Proxy tests from step 4 to verify that the selected routing configuration is applied.
 
 For troubleshooting, check the service logs:
 
@@ -132,13 +108,13 @@ docker-compose logs -f worker
 
 If this works, you have a running Proxy, a connected Worker, and a working routing configuration.
 
----
-
 ## Production Setup
 
 The Quick Start setup is intended for local development and testing.
 
 **Do not use it as-is in production.**
+
+> **⚠️ Important:** Before deploying to production, change all default Proxy usernames and passwords. In particular, do not use the default test credentials such as `test-proxy:test-proxy-password` in a production environment.
 
 For production, put Nginx in front of the Proxy/Broker endpoint and expose the service through a domain with TLS.
 
@@ -191,6 +167,40 @@ Replace:
 * The certificate paths with the paths used by your TLS setup.
 
 The WebSocket headers are required for persistent communication between the Proxy and Broker.
+
+### TLS Certificates
+
+For production, it is recommended to use **Let's Encrypt certificates** or certificates issued by another trusted Certificate Authority.
+
+Configure the certificate paths in the application's TLS environment variables:
+
+```env
+TLS_CERT_FILE=/app/certs/live/example.com/fullchain.pem
+TLS_KEY_FILE=/app/certs/live/example.com/privkey.pem
+CERTS_DIR=/etc/letsencrypt/
+```
+
+Replace `example.com` with your actual domain.
+
+Make sure that the certificate files are mounted into the container at the paths specified by `TLS_CERT_FILE` and `TLS_KEY_FILE`, and that `CERTS_DIR` points to the directory containing your TLS certificates.
+
+If you use certificates issued by another Certificate Authority, configure the corresponding certificate and key paths instead.
+
+### UDP Relay
+
+If UDP relay support is required, configure `UDP_RELAY_HOST` to an IP address that is reachable by the Proxy clients.
+
+The configured host must be accessible on the UDP port range **55000–60000**.
+
+For example:
+
+```env
+UDP_RELAY_HOST=<PUBLIC_IP>
+```
+
+Replace `<PUBLIC_IP>` with the IP address that clients can use to reach the UDP relay.
+
+Make sure that the corresponding UDP ports **55000–60000** are allowed through the firewall and are reachable from the clients.
 
 ### Remote Workers
 

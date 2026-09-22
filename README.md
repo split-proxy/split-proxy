@@ -114,6 +114,8 @@ docker-compose logs -f worker
 
 If this works, you have a running Proxy, a connected Worker, and a working routing configuration.
 
+---
+
 ## Production Setup
 
 The Quick Start setup is intended for local development and testing.
@@ -121,6 +123,14 @@ The Quick Start setup is intended for local development and testing.
 **Do not use it as-is in production.**
 
 > **⚠️ Important:** Before deploying to production, change all default Proxy usernames and passwords. In particular, do not use the default test credentials such as `test-proxy:test-proxy-password` in a production environment.
+
+### Review Environment Variables
+
+Before starting the production deployment, review the `.env` and other environment files used by the application.
+
+Replace all default or example values with your own **unique and secure values**, especially passwords, tokens, secrets, credentials, and other security-sensitive settings.
+
+Do not use the default values from the example configuration in production.
 
 For production, put Nginx in front of the Proxy/Broker endpoint and expose the service through a domain with TLS.
 

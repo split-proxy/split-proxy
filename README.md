@@ -45,7 +45,7 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Fill in `.env` with the actual values required for your environment.
+Fill in .env with the actual values required for your environment. For local testing, the default values can be used as-is.
 
 ### 2. Start the main stack
 
@@ -61,7 +61,7 @@ Create the Worker environment file:
 cp .env.worker.example .env.worker
 ```
 
-Fill in `.env.worker` with the actual values required for your environment.
+Fill in .env with the actual values required for your environment. For local testing, the default values can be used as-is.
 
 Start the Worker:
 
@@ -615,6 +615,7 @@ For production:
 * Use TLS.
 * Put Nginx or another reverse proxy in front of the public endpoint.
 * Use strong Proxy and Worker tokens.
+* **Do not use default authentication credentials or test certificates in production.**
 * Do not commit `.env` files containing secrets.
 * Do not expose PostgreSQL or Redis publicly.
 * Protect the Admin Panel.

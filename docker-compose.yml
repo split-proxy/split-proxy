@@ -62,7 +62,7 @@ services:
     container_name: proxy
     restart: always
     ports:
-      - "${PROXY_PORT}:${PROXY_PORT}"
+      - "${PROXY_LISTEN_PORT}:${PROXY_LISTEN_PORT}"
     env_file:
       - .env
     volumes:
@@ -95,9 +95,9 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5

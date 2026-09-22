@@ -45,7 +45,7 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Fill in `.env` with the actual values required for your environment.
+Fill in .env with the actual values required for your environment. For local testing, the default values can be used as-is.
 
 ### 2. Start the main stack
 
@@ -61,7 +61,7 @@ Create the Worker environment file:
 cp .env.worker.example .env.worker
 ```
 
-Fill in `.env.worker` with the actual values required for your environment.
+Fill in .env with the actual values required for your environment. For local testing, the default values can be used as-is.
 
 Start the Worker:
 
@@ -69,58 +69,40 @@ Start the Worker:
 docker-compose -f docker-compose.worker.yml up -d --build
 ```
 
-### 4. Create an Admin user
+### 4. Test the Proxy
 
-Create a Django superuser:
-
-```bash
-docker exec -it admin_back python manage.py createsuperuser
-```
-
-### 5. Configure the Proxy
-
-Open the Admin Panel at the configured FRONT_PORT:
-
-1. Register the Worker.
-2. Create one or more Proxy accounts.
-3. Create the required groups.
-4. Configure the routing rules.
-
-At this point, the Proxy is ready to test.
-
-### 6. Test with `curl`
+Before configuring routing, you can verify that the Proxy is reachable and accepts the test credentials.
 
 #### HTTP / HTTPS
 
 ```bash
-curl -v \
-  -x http://<USERNAME>:<PASSWORD>@127.0.0.1:<PROXY_PORT> \
-  https://example.com
+curl --proxy http://test-proxy:test-proxy-password@127.0.0.1:8787 https://google.com
 ```
 
 #### SOCKS5
 
 ```bash
-curl -v \
-  --proxy socks5h://<USERNAME>:<PASSWORD>@127.0.0.1:<PROXY_PORT> \
-  https://example.com
+curl --proxy socks5h://test-proxy:test-proxy-password@127.0.0.1:8787 https://google.com
 ```
 
-Replace:
+If both commands complete successfully, the Proxy is running and accepting connections with the test credentials.
 
-* `<USERNAME>` with the Proxy account username.
-* `<PASSWORD>` with the Proxy account password.
-* `<PROXY_PORT>` with the configured Proxy port.
+### 5. Configure the Proxy
 
-To check the public IP:
+Open the Admin Panel at the configured `FRONT_PORT` (default: `127.0.0.1:5555`):
 
-```bash
-curl \
-  -x http://<USERNAME>:<PASSWORD>@127.0.0.1:<PROXY_PORT> \
-  https://api.ipify.org
-```
+1. Log in to the Admin Panel using the default administrator credentials:
 
-If routing is configured correctly, the returned IP should correspond to the selected route or Worker.
+   * **Login:** `admin`
+   * **Password:** `simple-split-proxy-password`
+2. Go to **Groups and Workers**.
+3. Make sure that your local Worker is listed.
+4. Create a new group (for example, `local`).
+5. Assign the Worker to the `local` group.
+6. Go to the **Routing** tab and select the `local` group.
+7. Run the `curl` tests from the previous step again to verify that everything is working correctly.
+
+At this point, your requests should be routed through the Worker. The Worker can later be moved to a separate remote machine while keeping the same routing configuration.
 
 For troubleshooting, check the service logs:
 
@@ -139,6 +121,16 @@ If this works, you have a running Proxy, a connected Worker, and a working routi
 The Quick Start setup is intended for local development and testing.
 
 **Do not use it as-is in production.**
+
+> **⚠️ Important:** Before deploying to production, change all default Proxy usernames and passwords. In particular, do not use the default test credentials such as `test-proxy:test-proxy-password` in a production environment.
+
+### Review Environment Variables
+
+Before starting the production deployment, review the `.env` and other environment files used by the application.
+
+Replace all default or example values with your own **unique and secure values**, especially passwords, tokens, secrets, credentials, and other security-sensitive settings.
+
+Do not use the default values from the example configuration in production.
 
 For production, put Nginx in front of the Proxy/Broker endpoint and expose the service through a domain with TLS.
 
@@ -192,6 +184,40 @@ Replace:
 
 The WebSocket headers are required for persistent communication between the Proxy and Broker.
 
+### TLS Certificates
+
+For production, it is recommended to use **Let's Encrypt certificates** or certificates issued by another trusted Certificate Authority.
+
+Configure the certificate paths in the application's TLS environment variables:
+
+```env
+TLS_CERT_FILE=/app/certs/live/example.com/fullchain.pem
+TLS_KEY_FILE=/app/certs/live/example.com/privkey.pem
+CERTS_DIR=/etc/letsencrypt/
+```
+
+Replace `example.com` with your actual domain.
+
+Make sure that the certificate files are mounted into the container at the paths specified by `TLS_CERT_FILE` and `TLS_KEY_FILE`, and that `CERTS_DIR` points to the directory containing your TLS certificates.
+
+If you use certificates issued by another Certificate Authority, configure the corresponding certificate and key paths instead.
+
+### UDP Relay
+
+If UDP relay support is required, configure `UDP_RELAY_HOST` to an IP address that is reachable by the Proxy clients.
+
+The configured host must be accessible on the UDP port range **55000–60000**.
+
+For example:
+
+```env
+UDP_RELAY_HOST=<PUBLIC_IP>
+```
+
+Replace `<PUBLIC_IP>` with the IP address that clients can use to reach the UDP relay.
+
+Make sure that the corresponding UDP ports **55000–60000** are allowed through the firewall and are reachable from the clients.
+
 ### Remote Workers
 
 Once the production endpoint is available, additional Workers can be deployed on remote machines.
@@ -238,46 +264,7 @@ Once the routing rules are configured, the same Proxy endpoint can route differe
 
 ## Architecture
 
-The Proxy is the entry point for client traffic.
-
-```text
-                         ┌──────────────┐
-                         │    Client    │
-                         └──────┬───────┘
-                                │
-                         HTTP / SOCKS5
-                                │
-                                ▼
-                         ┌──────────────┐
-                         │    Proxy     │
-                         └──────┬───────┘
-                                │
-                       ┌────────┴────────┐
-                       │                 │
-                    DIRECT             BROKER
-                       │                 │
-                       │                 ▼
-                       │             ┌─────────┐
-                       │             │ Broker  │
-                       │             └────┬────┘
-                       │                  │
-                       │                  ▼
-                       │             ┌─────────┐
-                       │             │ Worker  │
-                       │             └────┬────┘
-                       │                  │
-                       └────────┬─────────┘
-                                │
-                                ▼
-                           Destination
-```
-
-The Proxy uses:
-
-* **PostgreSQL** for Proxy authentication.
-* **Redis** for routing configuration.
-* **Broker** for traffic that must be forwarded through a Worker.
-* **Admin Panel** for managing Proxy accounts, Workers, groups, and routing rules.
+![Simple Split Proxy architecture](docs/architecture.png)
 
 ---
 
@@ -510,31 +497,6 @@ Proxy users are periodically synchronized from PostgreSQL, so changes made to Pr
 
 ---
 
-## Configuration
-
-The Proxy is configured through environment variables.
-
-| Variable                  | Description                                 |
-| ------------------------- | ------------------------------------------- |
-| `LISTEN_ADDR`             | Address the Proxy listens on                |
-| `UDP_RELAY_HOST`          | Address advertised for the SOCKS5 UDP relay |
-| `TLS_CERT_FILE`           | TLS certificate path                        |
-| `TLS_KEY_FILE`            | TLS private key path                        |
-| `BROKER_ADDR`             | Broker WebSocket address                    |
-| `RANDOM_ENDPOINT_SECRET`  | Broker/Worker endpoint secret               |
-| `PROXY_TOKEN`             | Proxy authentication token                  |
-| `DATABASE_URL`            | PostgreSQL connection string                |
-| `REDIS_URL`               | Redis connection URL                        |
-| `DEFAULT_GROUP_NAME`      | Name of the direct-routing group            |
-| `DOMAINS_REDIS_KEY`       | Redis key containing domain rules           |
-| `CIDRS_REDIS_KEY`         | Redis key containing CIDR rules             |
-| `DEFAULT_ROUTE_REDIS_KEY` | Redis key containing the default route      |
-| `LOG_LEVEL`               | Logging level                               |
-
-See `.env.example` for the complete configuration used by the project.
-
----
-
 ## Docker
 
 Build and start the Proxy:
@@ -630,6 +592,7 @@ For production:
 * Use TLS.
 * Put Nginx or another reverse proxy in front of the public endpoint.
 * Use strong Proxy and Worker tokens.
+* **Do not use default authentication credentials or test certificates in production.**
 * Do not commit `.env` files containing secrets.
 * Do not expose PostgreSQL or Redis publicly.
 * Protect the Admin Panel.

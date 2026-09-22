@@ -92,15 +92,17 @@ If both commands complete successfully, the Proxy is running and accepting conne
 Open the Admin Panel at the configured `FRONT_PORT` (default: `127.0.0.1:5555`):
 
 1. Log in to the Admin Panel using the default administrator credentials:
+
    * **Login:** `admin`
    * **Password:** `simple-split-proxy-password`
-2. Register the Worker.
-3. Create one or more Proxy accounts.
-4. Create the required groups.
-5. Configure the routing rules.
+2. Go to **Groups and Workers**.
+3. Make sure that your local Worker is listed.
+4. Create a new group (for example, `local`).
+5. Assign the Worker to the `local` group.
+6. Go to the **Routing** tab and select the `local` group.
+7. Run the `curl` tests from the previous step again to verify that everything is working correctly.
 
-
-After the configuration is complete, repeat the Proxy tests from step 4 to verify that the selected routing configuration is applied.
+At this point, your requests should be routed through the Worker. The Worker can later be moved to a separate remote machine while keeping the same routing configuration.
 
 For troubleshooting, check the service logs:
 

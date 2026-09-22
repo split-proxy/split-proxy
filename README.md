@@ -264,46 +264,7 @@ Once the routing rules are configured, the same Proxy endpoint can route differe
 
 ## Architecture
 
-The Proxy is the entry point for client traffic.
-
-```text
-                         ┌──────────────┐
-                         │    Client    │
-                         └──────┬───────┘
-                                │
-                         HTTP / SOCKS5
-                                │
-                                ▼
-                         ┌──────────────┐
-                         │    Proxy     │
-                         └──────┬───────┘
-                                │
-                       ┌────────┴────────┐
-                       │                 │
-                    DIRECT             BROKER
-                       │                 │
-                       │                 ▼
-                       │             ┌─────────┐
-                       │             │ Broker  │
-                       │             └────┬────┘
-                       │                  │
-                       │                  ▼
-                       │             ┌─────────┐
-                       │             │ Worker  │
-                       │             └────┬────┘
-                       │                  │
-                       └────────┬─────────┘
-                                │
-                                ▼
-                           Destination
-```
-
-The Proxy uses:
-
-* **PostgreSQL** for Proxy authentication.
-* **Redis** for routing configuration.
-* **Broker** for traffic that must be forwarded through a Worker.
-* **Admin Panel** for managing Proxy accounts, Workers, groups, and routing rules.
+![Simple Split Proxy architecture](docs/architecture.png)
 
 ---
 

@@ -89,7 +89,7 @@ If both commands complete successfully, the Proxy is running and accepting conne
 
 ### 5. Configure the Proxy
 
-Open the Admin Panel at the configured FRONT_PORT:
+Open the Admin Panel at the configured `FRONT_PORT` (default: `127.0.0.1:5555`):
 
 1. Log in to the Admin Panel using the default administrator credentials:
    * **Login:** `admin`

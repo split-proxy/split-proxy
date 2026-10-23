@@ -63,6 +63,7 @@ services:
     restart: always
     ports:
       - "${PROXY_LISTEN_PORT}:${PROXY_LISTEN_PORT}"
+      - "${UDP_RELAY_MIN_PORT}-${UDP_RELAY_MAX_PORT}:${UDP_RELAY_MIN_PORT}-${UDP_RELAY_MAX_PORT}/udp"
     env_file:
       - .env
     volumes:

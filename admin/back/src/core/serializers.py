@@ -97,8 +97,18 @@ class WorkerSerializer(TimeStampMixin, serializers.ModelSerializer):
 class DomainRouteSerializer(serializers.Serializer):
     pattern = serializers.CharField(max_length=255)
     worker_group = serializers.PrimaryKeyRelatedField(
-        queryset=models.WorkerGroup.objects.all()
+        queryset=models.WorkerGroup.objects.all(),
+        allow_null=True,
+        required=False
     )
+
+    def to_internal_value(self, data):
+        data = data.copy()
+
+        if data.get("worker_group") == 0:
+            data["worker_group"] = None
+
+        return super().to_internal_value(data)
 
 
 class DomainsRouteSerializer(serializers.Serializer):
@@ -107,21 +117,43 @@ class DomainsRouteSerializer(serializers.Serializer):
         allow_empty=False,
     )
     worker_group = serializers.PrimaryKeyRelatedField(
-        queryset=models.WorkerGroup.objects.all()
+        queryset=models.WorkerGroup.objects.all(),
+        allow_null=True,
+        required=False,
     )
+
+    def to_internal_value(self, data):
+        data = data.copy()
+
+        if data.get("worker_group") == 0:
+            data["worker_group"] = None
+
+        return super().to_internal_value(data)
 
     def validate_patterns(self, value):
         for pattern in value:
             if services.domain_route_exists(pattern):
-                raise serializers.ValidationError("Such pattern already exist: %s" % pattern)
+                raise serializers.ValidationError(
+                    "Such pattern already exist: %s" % pattern
+                )
         return value
 
 
 class CIDRRouteSerializer(serializers.Serializer):
     cidr = serializers.CharField(max_length=64)
     worker_group = serializers.PrimaryKeyRelatedField(
-        queryset=models.WorkerGroup.objects.all()
+        queryset=models.WorkerGroup.objects.all(),
+        allow_null=True,
+        required=False,
     )
+
+    def to_internal_value(self, data):
+        data = data.copy()
+
+        if data.get("worker_group") == 0:
+            data["worker_group"] = None
+
+        return super().to_internal_value(data)
 
     def validate_cidr(self, value):
         try:
@@ -137,8 +169,18 @@ class CIDRsRouteSerializer(serializers.Serializer):
         allow_empty=False,
     )
     worker_group = serializers.PrimaryKeyRelatedField(
-        queryset=models.WorkerGroup.objects.all()
+        queryset=models.WorkerGroup.objects.all(),
+        allow_null=True,
+        required=False,
     )
+
+    def to_internal_value(self, data):
+        data = data.copy()
+
+        if data.get("worker_group") == 0:
+            data["worker_group"] = None
+
+        return super().to_internal_value(data)
 
     def validate_cidrs(self, value):
         for cidr in value:
@@ -147,7 +189,9 @@ class CIDRsRouteSerializer(serializers.Serializer):
             except ValueError:
                 raise serializers.ValidationError("Invalid CIDRs")
             if services.cidr_route_exists(cidr):
-                raise serializers.ValidationError("Such cidr already exist: %s" % cidr)
+                raise serializers.ValidationError(
+                    "Such cidr already exist: %s" % cidr
+                )
         return value
 
 

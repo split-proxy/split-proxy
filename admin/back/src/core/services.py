@@ -2,6 +2,9 @@ from core import models, utils
 from django.conf import settings
 
 
+DIRECT_ROUTE = "direct"
+
+
 def get_domain_routes(search: str | None = None):
     routes = utils.rds.hgetall(settings.DOMAINS_REDIS_KEY)
 
@@ -15,7 +18,7 @@ def get_domain_routes(search: str | None = None):
     return [
         {
             "pattern": pattern,
-            "group": groups.get(group_name),
+            "group": 0 if group_name == DIRECT_ROUTE else groups.get(group_name),
         }
         for pattern, group_name in routes.items()
         if not search or search in pattern.lower()
@@ -35,12 +38,11 @@ def create_domain_route(patterns, worker_group):
         utils.rds.hset(
             settings.DOMAINS_REDIS_KEY,
             pattern,
-            worker_group.group_name,
+            DIRECT_ROUTE if worker_group is None else worker_group.group_name,
         )
     return {
         'pattern': patterns,
-        'worker_group': worker_group.pk
-
+        'worker_group': 0 if worker_group is None else worker_group.pk
     }
 
 
@@ -48,12 +50,12 @@ def update_domain_route(pattern, worker_group):
     utils.rds.hset(
         settings.DOMAINS_REDIS_KEY,
         pattern,
-        worker_group.group_name,
+        DIRECT_ROUTE if worker_group is None else worker_group.group_name,
     )
 
     return {
         "pattern": pattern,
-        "worker_group": worker_group.pk,
+        "worker_group": 0 if worker_group is None else worker_group.pk,
     }
 
 
@@ -93,7 +95,10 @@ def get_cidr_routes(search: str | None = None):
 
         result.append({
             "cidr": cidr,
-            "worker_group": groups.get(group_name),
+            "worker_group": (
+                0 if group_name == DIRECT_ROUTE
+                else groups.get(group_name)
+            ),
         })
 
     return result
@@ -112,11 +117,11 @@ def create_cidr_route(cidrs, worker_group):
         utils.rds.hset(
             settings.CIDRS_REDIS_KEY,
             cidr,
-            worker_group.group_name,
+            DIRECT_ROUTE if worker_group is None else worker_group.group_name,
         )
     return {
         'cidrs': cidrs,
-        'worker_group': worker_group.pk
+        'worker_group': 0 if worker_group is None else worker_group.pk
     }
 
 
@@ -124,11 +129,11 @@ def update_cidr_route(cidr, worker_group):
     utils.rds.hset(
         settings.CIDRS_REDIS_KEY,
         cidr,
-        worker_group.group_name,
+        DIRECT_ROUTE if worker_group is None else worker_group.group_name,
     )
     return {
         'cidr': cidr,
-        'worker_group': worker_group.pk
+        'worker_group': 0 if worker_group is None else worker_group.pk
     }
 
 

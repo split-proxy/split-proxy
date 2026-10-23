@@ -19,9 +19,6 @@ const (
 
 	ProtocolDetectionTimeout = 10 * time.Second
 
-	UDPRelayMinPort = 55000
-	UDPRelayMaxPort = 60000
-
 	AuthSyncInterval = 10 * time.Second
 	AuthReloadTimeout = 5 * time.Second
 )
@@ -35,7 +32,11 @@ const (
 	LogLevelDebug
 )
 
-var logLevel = LogLevelInfo
+var (
+	logLevel = LogLevelInfo
+	UDPRelayMinPort = getEnvInt("UDP_RELAY_MIN_PORT", 55000)
+	UDPRelayMaxPort = getEnvInt("UDP_RELAY_MAX_PORT", 55032)
+)
 
 func initLogger() {
 	switch strings.ToLower(os.Getenv("LOG_LEVEL")) {

@@ -823,9 +823,7 @@ export function SplittingPage() {
             loading={
               loadingGroups
             }
-            options={
-              groupOptions
-            }
+            options={defaultRouteOptions}
             onChange={(
               value,
             ) =>
@@ -919,9 +917,7 @@ export function SplittingPage() {
             loading={
               loadingGroups
             }
-            options={
-              groupOptions
-            }
+            options={defaultRouteOptions}
             onChange={(
               value,
             ) =>
@@ -1017,7 +1013,7 @@ export function SplittingPage() {
                 minWidth: 200,
               }}
               loading={loadingGroups}
-              options={groupOptions}
+              options={defaultRouteOptions}
               onChange={(value) =>
                 setDomainGroup(value ?? null)
               }
@@ -1203,7 +1199,7 @@ export function SplittingPage() {
                 minWidth: 200,
               }}
               loading={loadingGroups}
-              options={groupOptions}
+              options={defaultRouteOptions}
               onChange={(value) =>
                 setCidrGroup(value ?? null)
               }

@@ -16,6 +16,7 @@ export default {
     createdAt: "Created at",
     updatedAt: "Updated at",
     minPasswordSize: "Minimum 8 characters",
+    paginationTotal: "Total {{count}}",
   },
 
   adminLayout: {
@@ -110,6 +111,15 @@ export default {
     login: "Account login",
     deletionError: "Proxy deletion error",
     proxyDeleted: "Proxy account deleted",
+    selectedProxies: "Selected proxies: {{count}}",
+    clearSelection: "Clear selection",
+    bulkDelete: "Delete selected",
+    bulkDeleteTitle: "Delete selected proxies?",
+    bulkDeleteConfirm: "Are you sure you want to delete {{count}} proxies?",
+    bulkDeleted: "Deleted proxies: {{count}}",
+    bulkDeletePartial: "Deleted: {{success}}, failed: {{failed}}",
+    bulkDeleteFailed: "Failed to delete selected proxies",
+    searchPlaceholder: "Search proxies"
   },
 
   newProxyFormPage: {
@@ -146,6 +156,21 @@ export default {
     deletionGroupError: "Group deletion error",
     deletionWorkerError: "Worker deletion error",
     groupDeleted: "Group deleted",
+    searchGuid: "Search by GUID",
+    allGroups: "All",
+    noGroup: "No group",
+    bulkSelectGroup: "Assign group",
+    bulkUpdateGroup: "Change group for selected",
+    bulkDelete: "Delete selected",
+    bulkDeleteTitle: "Bulk deletion",
+    bulkDeleteConfirm: "Delete selected workers: {{count}}?",
+    bulkWorkersDeleted: "Workers deleted: {{count}}",
+    bulkGroupUpdated: "Group updated for {{count}} workers",
+    bulkGroupPartial: "Group updated: {{succeeded}}, errors: {{failed}}",
+    bulkDeletePartial: "Deleted: {{succeeded}}, errors: {{failed}}",
+    workersTotal: "Total workers: {{count}}",
+    selectedWorkers: "Workers selected: {{count}}",
+    clearSelection: "Clear selection"
   },
 
   newGroupFormPage: {
@@ -204,8 +229,22 @@ export default {
     addDomain: "Add domain",
     addCidrs: "Add CIDRs",
     defaultRoute: "Settings",
-    descriptionRoute:
-      "Select the group through which default traffic will be routed:",
+    descriptionRoute: "Select the group through which default traffic will be routed:",
     defaultRouteUpdated: "Default route updated",
+    allGroups: "All groups",
+    filterByGroup: "Filter by group",
+    bulkSelectGroup: "Select a group",
+    bulkUpdateGroup: "Change group",
+    bulkDelete: "Delete selected",
+    bulkDeleteTitle: "Delete selected routes?",
+    bulkDeleteConfirm: "Are you sure you want to delete {{count}} selected routes? This action cannot be undone.",
+    bulkDeleted: "Deleted {{count}} routes",
+    bulkGroupUpdated: "Updated the group for {{count}} routes",
+    bulkGroupPartial: "Updated the group for {{succeeded}} routes; {{failed}} failed.",
+    bulkGroupFailed: "Could not change the group for the selected routes.",
+    bulkDeletePartial: "Deleted {{succeeded}} routes; {{failed}} failed.",
+    bulkDeleteFailed: "Could not delete the selected routes.",
+    selectedRoutes: "Selected: {{count}}",
+    clearSelection: "Clear selection"
   },
 };

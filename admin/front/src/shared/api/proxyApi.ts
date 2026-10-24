@@ -1,26 +1,73 @@
-import { apiFetch } from '@/shared/api/apiClient'
-import { authStorage } from '@/shared/lib/authStorage'
-import { ProxyItem, ProxyInput } from '@/shared/types'
+import { apiFetch } from "@/shared/api/apiClient";
+import type { ProxyItem, ProxyInput } from "@/shared/types";
 
-type PaginatedProxyList = {
+export type PaginatedProxyList = {
   count: number;
   next: string | null;
   previous: string | null;
   results: ProxyItem[];
 };
 
-export const getProxy = (id: number): Promise<ProxyItem> => apiFetch(`/proxy/${id}`, {method: "GET"});
+export type ProxyListParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+};
 
-export const getProxies = (): Promise<PaginatedProxyList> => apiFetch(`/proxy`, {method: "GET"});
+const buildQuery = ({
+  page,
+  pageSize,
+  search,
+}: ProxyListParams = {}): string => {
+  const params = new URLSearchParams();
 
-export const createProxy = (data: ProxyInput): Promise<ProxyItem> => apiFetch(`/proxy`, {
-  method: "POST",
-  body: JSON.stringify(data),
-})
+  if (page !== undefined) {
+    params.set("page", String(page));
+  }
 
-export const updateProxy = (id: number, data: ProxyInput): Promise<ProxyItem> => apiFetch(`/proxy/${id}`, {
-  method: "PATCH",
-  body: JSON.stringify(data),
-})
+  if (pageSize !== undefined) {
+    params.set("page_size", String(pageSize));
+  }
 
-export const removeProxy = (id: number): Promise<ProxyItem> => apiFetch(`/proxy/${id}`, {method: 'DELETE'})
+  if (search?.trim()) {
+    params.set("search", search.trim());
+  }
+
+  const query = params.toString();
+
+  return query ? `?${query}` : "";
+};
+
+export const getProxy = (id: number): Promise<ProxyItem> =>
+  apiFetch(`/proxy/${id}`, {
+    method: "GET",
+  });
+
+export const getProxies = (
+  params?: ProxyListParams,
+): Promise<PaginatedProxyList> =>
+  apiFetch(`/proxy${buildQuery(params)}`, {
+    method: "GET",
+  });
+
+export const createProxy = (
+  data: ProxyInput,
+): Promise<ProxyItem> =>
+  apiFetch("/proxy", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateProxy = (
+  id: number,
+  data: ProxyInput,
+): Promise<ProxyItem> =>
+  apiFetch(`/proxy/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const removeProxy = (id: number): Promise<ProxyItem> =>
+  apiFetch(`/proxy/${id}`, {
+    method: "DELETE",
+  });

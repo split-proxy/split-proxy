@@ -12,6 +12,7 @@ import {
   Card,
   Checkbox,
   Input,
+  Modal,
   Select,
   Space,
   Table,
@@ -64,6 +65,8 @@ type DefaultRoute = {
 };
 
 const SEARCH_DEBOUNCE_MS = 400;
+const DEFAULT_ROUTE_PAGE_SIZE = 100;
+type RouteGroupFilter = number | "none" | "all";
 
 
 const isValidDomain = (value: string) => {
@@ -146,12 +149,28 @@ export function SplittingPage() {
    */
 
   const [domainPage, setDomainPage] = useState(1);
-  const [domainPageSize, setDomainPageSize] = useState(10);
+  const [domainPageSize, setDomainPageSize] = useState(DEFAULT_ROUTE_PAGE_SIZE);
   const [domainTotal, setDomainTotal] = useState(0);
 
   const [cidrPage, setCidrPage] = useState(1);
-  const [cidrPageSize, setCidrPageSize] = useState(10);
+  const [cidrPageSize, setCidrPageSize] = useState(DEFAULT_ROUTE_PAGE_SIZE);
   const [cidrTotal, setCidrTotal] = useState(0);
+
+  const [domainGroupFilter, setDomainGroupFilter] =
+    useState<RouteGroupFilter>("all");
+  const [cidrGroupFilter, setCidrGroupFilter] =
+    useState<RouteGroupFilter>("all");
+
+  const [selectedDomainPatterns, setSelectedDomainPatterns] =
+    useState<string[]>([]);
+  const [selectedCidrs, setSelectedCidrs] =
+    useState<string[]>([]);
+  const [bulkDomainGroup, setBulkDomainGroup] =
+    useState<number | undefined>();
+  const [bulkCidrGroup, setBulkCidrGroup] =
+    useState<number | undefined>();
+  const [bulkDomainLoading, setBulkDomainLoading] = useState(false);
+  const [bulkCidrLoading, setBulkCidrLoading] = useState(false);
 
   /*
    * --------------------------------------------------------------------------
@@ -291,6 +310,9 @@ export function SplittingPage() {
         page: domainPage,
         pageSize: domainPageSize,
         search: domainSearch,
+        ...(domainGroupFilter !== "all"
+          ? { group: domainGroupFilter }
+          : {}),
       });
 
       setDomains(response.results);
@@ -308,6 +330,7 @@ export function SplittingPage() {
     domainPage,
     domainPageSize,
     domainSearch,
+    domainGroupFilter,
     t,
   ]);
 
@@ -325,6 +348,9 @@ export function SplittingPage() {
         page: cidrPage,
         pageSize: cidrPageSize,
         search: cidrSearch,
+        ...(cidrGroupFilter !== "all"
+          ? { group: cidrGroupFilter }
+          : {}),
       });
 
       setCidrs(response.results);
@@ -342,6 +368,7 @@ export function SplittingPage() {
     cidrPage,
     cidrPageSize,
     cidrSearch,
+    cidrGroupFilter,
     t,
   ]);
   /*
@@ -759,6 +786,165 @@ export function SplittingPage() {
 
   /*
    * --------------------------------------------------------------------------
+   * Bulk actions
+   * --------------------------------------------------------------------------
+   */
+
+  const changeSelectedDomainsGroup = async () => {
+    if (bulkDomainGroup === undefined || selectedDomainPatterns.length === 0) {
+      return;
+    }
+
+    setBulkDomainLoading(true);
+    const results = await Promise.allSettled(
+      selectedDomainPatterns.map((pattern) =>
+        updateDomain(pattern, bulkDomainGroup),
+      ),
+    );
+    const succeeded = results.reduce(
+      (count, result) => count + (result.status === "fulfilled" ? 1 : 0),
+      0,
+    );
+
+    setBulkDomainLoading(false);
+    setSelectedDomainPatterns([]);
+    setBulkDomainGroup(undefined);
+    await loadDomains();
+
+    if (succeeded === results.length) {
+      message.success(t("routingPage.bulkGroupUpdated", { count: succeeded }));
+    } else if (succeeded > 0) {
+      message.warning(t("routingPage.bulkGroupPartial", {
+        succeeded,
+        failed: results.length - succeeded,
+      }));
+    } else {
+      message.error(t("routingPage.bulkGroupFailed"));
+    }
+  };
+
+  const deleteSelectedDomains = () => {
+    if (selectedDomainPatterns.length === 0) return;
+
+    Modal.confirm({
+      title: t("routingPage.bulkDeleteTitle"),
+      content: t("routingPage.bulkDeleteConfirm", {
+        count: selectedDomainPatterns.length,
+      }),
+      okText: t("routingPage.bulkDelete"),
+      cancelText: t("common.cancel"),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setBulkDomainLoading(true);
+        const results = await Promise.allSettled(
+          selectedDomainPatterns.map((pattern) => deleteDomain(pattern)),
+        );
+        const succeeded = results.reduce(
+          (count, result) => count + (result.status === "fulfilled" ? 1 : 0),
+          0,
+        );
+        const failedKeys = selectedDomainPatterns.filter(
+          (_pattern, index) => results[index].status === "rejected",
+        );
+
+        setBulkDomainLoading(false);
+        setSelectedDomainPatterns(failedKeys);
+        await loadDomains();
+
+        if (succeeded === results.length) {
+          message.success(t("routingPage.bulkDeleted", { count: succeeded }));
+        } else if (succeeded > 0) {
+          message.warning(t("routingPage.bulkDeletePartial", {
+            succeeded,
+            failed: results.length - succeeded,
+          }));
+        } else {
+          message.error(t("routingPage.bulkDeleteFailed"));
+        }
+      },
+    });
+  };
+
+  const changeSelectedCidrsGroup = async () => {
+    if (bulkCidrGroup === undefined || selectedCidrs.length === 0) {
+      return;
+    }
+
+    setBulkCidrLoading(true);
+    const results = await Promise.allSettled(
+      selectedCidrs.map((cidr) => updateCidr(cidr, bulkCidrGroup)),
+    );
+    const succeeded = results.reduce(
+      (count, result) => count + (result.status === "fulfilled" ? 1 : 0),
+      0,
+    );
+
+    setBulkCidrLoading(false);
+    setSelectedCidrs([]);
+    setBulkCidrGroup(undefined);
+    await loadCidrs();
+
+    if (succeeded === results.length) {
+      message.success(t("routingPage.bulkGroupUpdated", { count: succeeded }));
+    } else if (succeeded > 0) {
+      message.warning(t("routingPage.bulkGroupPartial", {
+        succeeded,
+        failed: results.length - succeeded,
+      }));
+    } else {
+      message.error(t("routingPage.bulkGroupFailed"));
+    }
+  };
+
+  const deleteSelectedCidrs = () => {
+    if (selectedCidrs.length === 0) return;
+
+    Modal.confirm({
+      title: t("routingPage.bulkDeleteTitle"),
+      content: t("routingPage.bulkDeleteConfirm", {
+        count: selectedCidrs.length,
+      }),
+      okText: t("routingPage.bulkDelete"),
+      cancelText: t("common.cancel"),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setBulkCidrLoading(true);
+        const results = await Promise.allSettled(
+          selectedCidrs.map((cidr) => deleteCidr(cidr)),
+        );
+        const succeeded = results.reduce(
+          (count, result) => count + (result.status === "fulfilled" ? 1 : 0),
+          0,
+        );
+        const failedKeys = selectedCidrs.filter(
+          (_cidr, index) => results[index].status === "rejected",
+        );
+
+        setBulkCidrLoading(false);
+        setSelectedCidrs(failedKeys);
+        await loadCidrs();
+
+        if (succeeded === results.length) {
+          message.success(t("routingPage.bulkDeleted", { count: succeeded }));
+        } else if (succeeded > 0) {
+          message.warning(t("routingPage.bulkDeletePartial", {
+            succeeded,
+            failed: results.length - succeeded,
+          }));
+        } else {
+          message.error(t("routingPage.bulkDeleteFailed"));
+        }
+      },
+    });
+  };
+
+  const groupFilterOptions = [
+    { value: "all", label: t("routingPage.allGroups") },
+    ...defaultRouteOptions,
+  ];
+
+  /*
+   * --------------------------------------------------------------------------
    * Domain columns
    * --------------------------------------------------------------------------
    */
@@ -1040,29 +1226,27 @@ export function SplittingPage() {
         </Space>
       </div>
 
-      <Input
-        allowClear
-        prefix={
-          <SearchOutlined />
-        }
-        value={
-          domainSearchInput
-        }
-        placeholder={t(
-          "routingPage.searchDomain",
-        )}
-        style={{
-          width: 300,
-          marginBottom: 16,
-        }}
-        onChange={(
-          event,
-        ) =>
-          setDomainSearchInput(
-            event.target.value,
-          )
-        }
-      />
+      <Space wrap style={{ width: "100%", marginBottom: 16 }}>
+        <Input
+          allowClear
+          prefix={<SearchOutlined />}
+          value={domainSearchInput}
+          placeholder={t("routingPage.searchDomain")}
+          style={{ width: 300 }}
+          onChange={(event) => setDomainSearchInput(event.target.value)}
+        />
+        <Select<RouteGroupFilter>
+          value={domainGroupFilter}
+          options={groupFilterOptions}
+          style={{ minWidth: 220 }}
+          placeholder={t("routingPage.filterByGroup")}
+          onChange={(value) => {
+            setDomainGroupFilter(value);
+            setDomainPage(1);
+            setSelectedDomainPatterns([]);
+          }}
+        />
+      </Space>
 
       <Table<DomainRule>
         rowKey="pattern"
@@ -1072,6 +1256,11 @@ export function SplittingPage() {
         dataSource={
           domains
         }
+        rowSelection={{
+          selectedRowKeys: selectedDomainPatterns,
+          preserveSelectedRowKeys: true,
+          onChange: (keys) => setSelectedDomainPatterns(keys.map(String)),
+        }}
         loading={
           loadingDomains
         }
@@ -1087,6 +1276,7 @@ export function SplittingPage() {
             domainTotal,
           showSizeChanger:
             true,
+          pageSizeOptions: ["10", "20", "50", "100"],
 
           onChange: (
             page,
@@ -1109,6 +1299,38 @@ export function SplittingPage() {
           },
         }}
       />
+
+      {selectedDomainPatterns.length > 0 && (
+        <div className="route-bulk-footer">
+          <Space wrap>
+            <Typography.Text>
+              {t("routingPage.selectedRoutes", { count: selectedDomainPatterns.length })}
+            </Typography.Text>
+            <Select<number>
+              value={bulkDomainGroup}
+              options={defaultRouteOptions}
+              placeholder={t("routingPage.bulkSelectGroup")}
+              style={{ minWidth: 220 }}
+              loading={loadingGroups}
+              onChange={setBulkDomainGroup}
+            />
+            <Button
+              type="primary"
+              loading={bulkDomainLoading}
+              disabled={bulkDomainGroup === undefined}
+              onClick={() => void changeSelectedDomainsGroup()}
+            >
+              {t("routingPage.bulkUpdateGroup")}
+            </Button>
+            <Button danger loading={bulkDomainLoading} onClick={deleteSelectedDomains}>
+              {t("routingPage.bulkDelete")}
+            </Button>
+            <Button type="text" onClick={() => setSelectedDomainPatterns([])}>
+              {t("routingPage.clearSelection")}
+            </Button>
+          </Space>
+        </div>
+      )}
     </div>
   );
   /* Default route tab */
@@ -1219,29 +1441,27 @@ export function SplittingPage() {
         </Space>
       </Card>
 
-      <Input
-        allowClear
-        prefix={
-          <SearchOutlined />
-        }
-        value={
-          cidrSearchInput
-        }
-        placeholder={t(
-          "routingPage.searchCidr",
-        )}
-        style={{
-          width: 300,
-          marginBottom: 16,
-        }}
-        onChange={(
-          event,
-        ) =>
-          setCidrSearchInput(
-            event.target.value,
-          )
-        }
-      />
+      <Space wrap style={{ width: "100%", marginBottom: 16 }}>
+        <Input
+          allowClear
+          prefix={<SearchOutlined />}
+          value={cidrSearchInput}
+          placeholder={t("routingPage.searchCidr")}
+          style={{ width: 300 }}
+          onChange={(event) => setCidrSearchInput(event.target.value)}
+        />
+        <Select<RouteGroupFilter>
+          value={cidrGroupFilter}
+          options={groupFilterOptions}
+          style={{ minWidth: 220 }}
+          placeholder={t("routingPage.filterByGroup")}
+          onChange={(value) => {
+            setCidrGroupFilter(value);
+            setCidrPage(1);
+            setSelectedCidrs([]);
+          }}
+        />
+      </Space>
 
       <Table<CidrRule>
         rowKey="cidr"
@@ -1251,6 +1471,11 @@ export function SplittingPage() {
         dataSource={
           cidrs
         }
+        rowSelection={{
+          selectedRowKeys: selectedCidrs,
+          preserveSelectedRowKeys: true,
+          onChange: (keys) => setSelectedCidrs(keys.map(String)),
+        }}
         loading={
           loadingCidrs
         }
@@ -1266,6 +1491,7 @@ export function SplittingPage() {
             cidrTotal,
           showSizeChanger:
             true,
+          pageSizeOptions: ["10", "20", "50", "100"],
 
           onChange: (
             page,
@@ -1288,6 +1514,38 @@ export function SplittingPage() {
           },
         }}
       />
+
+      {selectedCidrs.length > 0 && (
+        <div className="route-bulk-footer">
+          <Space wrap>
+            <Typography.Text>
+              {t("routingPage.selectedRoutes", { count: selectedCidrs.length })}
+            </Typography.Text>
+            <Select<number>
+              value={bulkCidrGroup}
+              options={defaultRouteOptions}
+              placeholder={t("routingPage.bulkSelectGroup")}
+              style={{ minWidth: 220 }}
+              loading={loadingGroups}
+              onChange={setBulkCidrGroup}
+            />
+            <Button
+              type="primary"
+              loading={bulkCidrLoading}
+              disabled={bulkCidrGroup === undefined}
+              onClick={() => void changeSelectedCidrsGroup()}
+            >
+              {t("routingPage.bulkUpdateGroup")}
+            </Button>
+            <Button danger loading={bulkCidrLoading} onClick={deleteSelectedCidrs}>
+              {t("routingPage.bulkDelete")}
+            </Button>
+            <Button type="text" onClick={() => setSelectedCidrs([])}>
+              {t("routingPage.clearSelection")}
+            </Button>
+          </Space>
+        </div>
+      )}
     </div>
   );
 
@@ -1299,6 +1557,7 @@ export function SplittingPage() {
 
   return (
     <div className="routing-page">
+      <style>{`.route-bulk-footer { position: sticky; bottom: 0; z-index: 10; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 24px; margin-top: 16px; background: var(--ant-color-bg-container, #fff); border-top: 1px solid #f0f0f0; box-shadow: 0 -4px 12px rgba(0, 0, 0, .06); }`}</style>
       <div className="page-heading">
         <div>
           <h1>

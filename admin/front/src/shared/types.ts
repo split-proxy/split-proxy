@@ -43,7 +43,7 @@ export type WorkerItem = {
   guid: string;
   ip_address: string;
   online: boolean;
-  group: number;
+  group: number | null;
   created_at: number;
   updated_at: number;
 }

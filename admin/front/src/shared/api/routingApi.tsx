@@ -19,129 +19,85 @@ export type PaginatedCidrList = {
   results: CidrRule[];
 };
 
+export type RouteGroupFilter = number | "none";
+
 type PaginationParams = {
   page?: number;
   pageSize?: number;
   search?: string;
+  /** A group ID, or "none" to return routes without a group. */
+  group?: RouteGroupFilter;
 };
 
 const buildQuery = ({
   page,
   pageSize,
   search,
+  group,
 }: PaginationParams = {}) => {
   const params = new URLSearchParams();
 
-  if (page !== undefined) {
-    params.set("page", String(page));
-  }
-
-  if (pageSize !== undefined) {
-    params.set("page_size", String(pageSize));
-  }
-
-  if (search?.trim()) {
-    params.set("search", search.trim());
-  }
+  if (page !== undefined) params.set("page", String(page));
+  if (pageSize !== undefined) params.set("page_size", String(pageSize));
+  if (search?.trim()) params.set("search", search.trim());
+  if (group !== undefined) params.set("group", String(group));
 
   const query = params.toString();
-
   return query ? `?${query}` : "";
 };
 
 export const getListDomains = (
   params?: PaginationParams,
 ): Promise<PaginatedDomainList> =>
-  apiFetch(`/routing/domains${buildQuery(params)}`, {
-    method: "GET",
-  });
+  apiFetch(`/routing/domains${buildQuery(params)}`, { method: "GET" });
 
 export const getListCidr = (
   params?: PaginationParams,
 ): Promise<PaginatedCidrList> =>
-  apiFetch(`/routing/cidr${buildQuery(params)}`, {
-    method: "GET",
-  });
+  apiFetch(`/routing/cidr${buildQuery(params)}`, { method: "GET" });
 
-export const addDomains = (
-  patterns: string[],
-  worker_group: number,
-) =>
+export const addDomains = (patterns: string[], worker_group: number) =>
   apiFetch("/routing/domains", {
     method: "POST",
-    body: JSON.stringify({
-      patterns,
-      worker_group,
-    }),
+    body: JSON.stringify({ patterns, worker_group }),
   });
 
-export const addCidrs = (
-  cidrs: string[],
-  worker_group: number,
-) =>
+export const addCidrs = (cidrs: string[], worker_group: number) =>
   apiFetch("/routing/cidr", {
     method: "POST",
-    body: JSON.stringify({
-      cidrs,
-      worker_group,
-    }),
+    body: JSON.stringify({ cidrs, worker_group }),
   });
 
-export const updateDomain = (
-  pattern: string,
-  worker_group: number,
-) =>
-  apiFetch(
-    `/routing/domains/${encodeURIComponent(pattern)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        worker_group,
-      }),
-    },
-  );
+export const updateDomain = (pattern: string, worker_group: number) =>
+  apiFetch(`/routing/domains/${encodeURIComponent(pattern)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ worker_group }),
+  });
 
-export const updateCidr = (
-  cidr: string,
-  worker_group: number,
-) =>
-  apiFetch(
-    `/routing/cidr/${encodeURIComponent(cidr)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        worker_group,
-      }),
-    },
-  );
+export const updateCidr = (cidr: string, worker_group: number) =>
+  apiFetch(`/routing/cidr/${encodeURIComponent(cidr)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ worker_group }),
+  });
 
 export const deleteDomain = (pattern: string) =>
-  apiFetch(
-    `/routing/domains/${encodeURIComponent(pattern)}`,
-    {
-      method: "DELETE",
-    },
-  );
+  apiFetch(`/routing/domains/${encodeURIComponent(pattern)}`, {
+    method: "DELETE",
+  });
 
 export const deleteCidr = (cidr: string) =>
-  apiFetch(
-    `/routing/cidr/${encodeURIComponent(cidr)}`,
-    {
-      method: "DELETE",
-    },
-  );
+  apiFetch(`/routing/cidr/${encodeURIComponent(cidr)}`, {
+    method: "DELETE",
+  });
 
 export const getDefaultRoute = (): Promise<DefaultRoute> =>
-  apiFetch("/routing/default", {
-    method: "GET",
-  });
+  apiFetch("/routing/default", { method: "GET" });
 
 export const updateDefaultRoute = (
   worker_group: number,
 ): Promise<DefaultRoute> =>
   apiFetch("/routing/default", {
     method: "PATCH",
-    body: JSON.stringify({
-      worker_group,
-    }),
+    body: JSON.stringify({ worker_group }),
   });
+

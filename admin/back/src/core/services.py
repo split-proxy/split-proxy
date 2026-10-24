@@ -17,36 +17,27 @@ def get_domain_routes(
     }
 
     search = search.strip().lower() if search else None
+    result = []
 
-    result = [
-        {
-            "pattern": (
-                pattern.decode("utf-8")
-                if isinstance(pattern, bytes)
-                else pattern
-            ),
-            "group": (
-                0
-                if (
-                    group_name.decode("utf-8")
-                    if isinstance(group_name, bytes)
-                    else group_name
-                ) == DIRECT_ROUTE
-                else groups.get(
-                    group_name.decode("utf-8")
-                    if isinstance(group_name, bytes)
-                    else group_name
-                )
-            ),
-        }
-        for pattern, group_name in routes.items()
-    ]
+    for pattern, group_name in routes.items():
+        if isinstance(pattern, bytes):
+            pattern = pattern.decode("utf-8")
 
-    if search:
-        result = [
-            item for item in result
-            if search in item["pattern"].lower()
-        ]
+        if isinstance(group_name, bytes):
+            group_name = group_name.decode("utf-8")
+
+        if search and search not in pattern.lower():
+            continue
+
+        if group_name == DIRECT_ROUTE:
+            worker_group = 0
+        else:
+            worker_group = groups.get(group_name)
+
+        result.append({
+            "pattern": pattern,
+            "group": worker_group,
+        })
 
     if group == "none":
         result = [
@@ -269,7 +260,3 @@ def worker_group_has_routes(worker_group):
         return True
 
     return False
-
-
-def delete_all_cidr_routes():
-    return utils.rds.delete(settings.CIDRS_REDIS_KEY)

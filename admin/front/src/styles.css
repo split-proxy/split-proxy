@@ -198,3 +198,27 @@ body {
     flex: 1;
   }
 }
+.proxies-toolbar {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.proxy-bulk-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 24px;
+  margin-top: 16px;
+  background: var(--ant-color-bg-container, #fff);
+  border-top: 1px solid #f0f0f0;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.workers-heading {
+  margin-top: 24px;
+}

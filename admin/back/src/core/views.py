@@ -1,12 +1,14 @@
 from django.db.models import Count, Q
 from django.conf import settings
-from rest_framework import generics
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics, filters
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework import status, serializers as drf_serializers
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from drf_spectacular.utils import (
     extend_schema,
     OpenApiExample,
@@ -17,6 +19,7 @@ from drf_spectacular.utils import (
 
 from core.pagination import CustomPageNumberPagination
 from core import serializers, models, permissions, services
+from core.filters import WorkerFilterSet
 
 
 @extend_schema(tags=['Auth methods'])
@@ -53,6 +56,8 @@ class ProfileRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
 class ProxyListCreateSerializerAPIView(generics.ListCreateAPIView):
     queryset = models.Proxy.objects.all()
     serializer_class = serializers.ProxySerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["username"]
 
 
 @extend_schema(tags=['Proxy methods'])
@@ -98,11 +103,23 @@ class WorkerGroupRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIV
     serializer_class = serializers.WorkerGroupSerializer
     http_method_names = ("get", "patch", "delete")
 
+    def perform_destroy(self, instance):
+        if services.worker_group_has_routes(instance):
+            raise ValidationError({
+                "detail": (
+                    "Cannot delete worker group because it is used "
+                    "by one or more routes."
+                )
+            })
+        instance.delete()
+
 
 @extend_schema(tags=['Worker methods'])
 class WorkerListSerializerAPIView(generics.ListAPIView):
     queryset = models.Worker.objects.all()
     serializer_class = serializers.WorkerSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = WorkerFilterSet
 
 
 @extend_schema(tags=['Worker methods'])
@@ -126,6 +143,13 @@ class DomainRouteListCreateAPIView(APIView):
                 description="Search by domain pattern",
             ),
             OpenApiParameter(
+                name="group",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by group ID, 0 for default route, or 'none' for unassigned routes",
+            ),
+            OpenApiParameter(
                 name="page",
                 type=int,
                 location=OpenApiParameter.QUERY,
@@ -144,9 +168,16 @@ class DomainRouteListCreateAPIView(APIView):
     )
     def get(self, request):
         search = request.query_params.get("search")
-        routes = services.get_domain_routes(search=search)
+        group = request.query_params.get("group")
+
+        routes = services.get_domain_routes(
+            search=search,
+            group=group,
+        )
+
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(routes, request)
+
         return paginator.get_paginated_response(page)
 
     @extend_schema(
@@ -268,6 +299,13 @@ class CIDRRouteListCreateAPIView(APIView):
                 description="Search by CIDR",
             ),
             OpenApiParameter(
+                name="group",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by group ID, 0 for default route, or 'none' for unassigned routes",
+            ),
+            OpenApiParameter(
                 name="page",
                 type=int,
                 location=OpenApiParameter.QUERY,
@@ -286,8 +324,12 @@ class CIDRRouteListCreateAPIView(APIView):
     )
     def get(self, request):
         search = request.query_params.get("search")
+        group = request.query_params.get("group")
 
-        routes = services.get_cidr_routes(search=search)
+        routes = services.get_cidr_routes(
+            search=search,
+            group=group,
+        )
 
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(routes, request)
@@ -453,3 +495,17 @@ class ConfigAPIView(APIView):
         return Response({
             "default_group_name": settings.DEFAULT_GROUP_NAME,
         })
+
+
+@extend_schema(tags=["CIDR methods"])
+class ClearCIDRRoutesAPIView(APIView):
+    def delete(self, request, *args, **kwargs):
+        deleted = services.delete_all_cidr_routes()
+
+        return Response(
+            {
+                "detail": "All CIDR routes have been deleted.",
+                "deleted": bool(deleted),
+            },
+            status=status.HTTP_200_OK,
+        )

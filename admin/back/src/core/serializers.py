@@ -130,14 +130,6 @@ class DomainsRouteSerializer(serializers.Serializer):
 
         return super().to_internal_value(data)
 
-    def validate_patterns(self, value):
-        for pattern in value:
-            if services.domain_route_exists(pattern):
-                raise serializers.ValidationError(
-                    "Such pattern already exist: %s" % pattern
-                )
-        return value
-
 
 class CIDRRouteSerializer(serializers.Serializer):
     cidr = serializers.CharField(max_length=64)
@@ -188,10 +180,6 @@ class CIDRsRouteSerializer(serializers.Serializer):
                 ipaddress.ip_network(cidr, strict=False)
             except ValueError:
                 raise serializers.ValidationError("Invalid CIDRs")
-            if services.cidr_route_exists(cidr):
-                raise serializers.ValidationError(
-                    "Such cidr already exist: %s" % cidr
-                )
         return value
 
 

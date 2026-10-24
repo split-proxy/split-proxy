@@ -20,6 +20,11 @@ urlpatterns = [
     path("routing/domains/<path:pattern>", views.DomainRouteDetailAPIView.as_view(), name="domain"),
     path("routing/cidr", views.CIDRRouteListCreateAPIView.as_view(), name="cidr"),
     path("routing/cidr/<path:cidr>", views.CIDRRouteDetailAPIView.as_view(), name="cidr"),
+    path(
+        "routing/clear_cidr",
+        views.ClearCIDRRoutesAPIView.as_view(),
+        name="clear-cidr-routes",
+    ),
     path("routing/default", views.DefaultRouteAPIView.as_view(), name="default-route"),
 
     path("config", views.ConfigAPIView.as_view(), name="config"),

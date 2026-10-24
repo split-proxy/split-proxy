@@ -16,6 +16,7 @@ export default {
     createdAt: "Дата и время создания",
     updatedAt: "Дата и время обновления",
     minPasswordSize: "Минимум 8 символов",
+    paginationTotal: "Всего {{total}}",
   },
 
   adminLayout: {
@@ -107,7 +108,16 @@ export default {
     proxiesNotLoaded: "Не удалось загрузить список аккаунтов к прокси",
     login: "Логин аккаунта",
     deletionError: "Ошибка удаления прокси",
-    proxyDeleted: "Прокси аккаунт удален"
+    proxyDeleted: "Прокси аккаунт удален",
+    selectedProxies: "Выбрано прокси: {{count}}",
+    clearSelection: "Снять выделение",
+    bulkDelete: "Удалить выбранные",
+    bulkDeleteTitle: "Удалить выбранные прокси?",
+    bulkDeleteConfirm: "Вы действительно хотите удалить {{count}} прокси?",
+    bulkDeleted: "Удалено прокси: {{count}}",
+    bulkDeletePartial: "Удалено: {{success}}, ошибок: {{failed}}",
+    bulkDeleteFailed: "Не удалось удалить выбранные прокси",
+    searchPlaceholder: "Поиск прокси"
   },
 
   newProxyFormPage: {
@@ -143,6 +153,21 @@ export default {
     deletionGroupError: "Ошибка удаления группы",
     deletionWorkerError: "Ошибка удаления воркера",
     groupDeleted: "Группа удалена",
+    searchGuid: "Поиск по GUID",
+    allGroups: "Все",
+    noGroup: "Без группы",
+    bulkSelectGroup: "Назначить группу",
+    bulkUpdateGroup: "Изменить группу выбранным",
+    bulkDelete: "Удалить выбранных",
+    bulkDeleteTitle: "Массовое удаление",
+    bulkDeleteConfirm: "Удалить выбранных работников: {{count}}?",
+    bulkWorkersDeleted: "Удалено работников: {{count}}",
+    bulkGroupUpdated: "Группа изменена у работников: {{count}}",
+    bulkGroupPartial: "Группа изменена: {{succeeded}}, ошибок: {{failed}}",
+    bulkDeletePartial: "Удалено: {{succeeded}}, ошибок: {{failed}}",
+    workersTotal: "Всего работников: {{count}}",
+    selectedWorkers: "Выбрано работников: {{count}}",
+    clearSelection: "Снять выделение"
   },
 
   newGroupFormPage: {
@@ -200,6 +225,26 @@ export default {
     addCidrs: "Добавить cidrs",
     defaultRoute: "Настройка",
     descriptionRoute: "Выберите группу через которую будет идти траффик по умолчанию:",
-    defaultRouteUpdated: "Маршрут по умолчанию обновлен"
+    defaultRouteUpdated: "Маршрут по умолчанию обновлен",
+    allGroups: "Все группы",
+    filterByGroup: "Фильтр по группе",
+    bulkSelectGroup: "Выберите группу",
+    bulkUpdateGroup: "Изменить группу",
+    bulkDelete: "Удалить выбранные",
+    bulkDeleteTitle: "Удалить выбранные маршруты?",
+    bulkDeleteConfirm: "Вы уверены, что хотите удалить {{count}} выбранных маршрутов? Это действие нельзя отменить.",
+    bulkDeleted: "Удалено маршрутов: {{count}}",
+    bulkGroupUpdated: "Группа обновлена у маршрутов: {{count}}",
+    bulkGroupPartial: "Группа обновлена у {{succeeded}} маршрутов; ошибок: {{failed}}.",
+    bulkGroupFailed: "Не удалось изменить группу выбранных маршрутов.",
+    bulkDeletePartial: "Удалено маршрутов: {{succeeded}}; ошибок: {{failed}}.",
+    bulkDeleteFailed: "Не удалось удалить выбранные маршруты.",
+    selectedRoutes: "Выбрано: {{count}}",
+    clearSelection: "Снять выделение",
+    clearAllCidrs: "Очистить все CIDR",
+    clearAllCidrsTitle: "Очистить все CIDR?",
+    clearAllCidrsConfirm: "Все CIDR-маршруты будут удалены. Это действие нельзя отменить.",
+    allCidrsCleared: "Все CIDR-маршруты удалены.",
+    clearAllCidrsError: "Не удалось очистить CIDR-маршруты."
   }
 };

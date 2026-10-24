@@ -5,24 +5,57 @@ from django.conf import settings
 DIRECT_ROUTE = "direct"
 
 
-def get_domain_routes(search: str | None = None):
+def get_domain_routes(
+    search: str | None = None,
+    group: str | None = None,
+):
     routes = utils.rds.hgetall(settings.DOMAINS_REDIS_KEY)
 
     groups = {
-        group.group_name: group.pk
-        for group in models.WorkerGroup.objects.all()
+        item.group_name: item.pk
+        for item in models.WorkerGroup.objects.all()
     }
 
     search = search.strip().lower() if search else None
+    result = []
 
-    return [
-        {
+    for pattern, group_name in routes.items():
+        if isinstance(pattern, bytes):
+            pattern = pattern.decode("utf-8")
+
+        if isinstance(group_name, bytes):
+            group_name = group_name.decode("utf-8")
+
+        if search and search not in pattern.lower():
+            continue
+
+        if group_name == DIRECT_ROUTE:
+            worker_group = 0
+        else:
+            worker_group = groups.get(group_name)
+
+        result.append({
             "pattern": pattern,
-            "group": 0 if group_name == DIRECT_ROUTE else groups.get(group_name),
-        }
-        for pattern, group_name in routes.items()
-        if not search or search in pattern.lower()
-    ]
+            "group": worker_group,
+        })
+
+    if group == "none":
+        result = [
+            item for item in result
+            if item["group"] is None
+        ]
+    elif group not in (None, ""):
+        try:
+            group_id = int(group)
+        except (TypeError, ValueError):
+            return []
+
+        result = [
+            item for item in result
+            if item["group"] == group_id
+        ]
+
+    return result
 
 
 def get_domain_route(pattern):
@@ -66,16 +99,18 @@ def delete_domain_route(pattern):
     )
 
 
-def get_cidr_routes(search: str | None = None):
+def get_cidr_routes(
+    search: str | None = None,
+    group: str | None = None,
+):
     routes = utils.rds.hgetall(settings.CIDRS_REDIS_KEY)
 
     groups = {
-        group.group_name: group.pk
-        for group in models.WorkerGroup.objects.all()
+        item.group_name: item.pk
+        for item in models.WorkerGroup.objects.all()
     }
 
     search = search.strip().lower() if search else None
-
     result = []
 
     for cidr, group_name in routes.items():
@@ -93,12 +128,27 @@ def get_cidr_routes(search: str | None = None):
         if search and search not in cidr.lower():
             continue
 
+        worker_group = (
+            0
+            if group_name == DIRECT_ROUTE
+            else groups.get(group_name)
+        )
+
+        if group == "none" and worker_group is not None:
+            continue
+
+        if group not in (None, "", "none"):
+            try:
+                group_id = int(group)
+            except (TypeError, ValueError):
+                return []
+
+            if worker_group != group_id:
+                continue
+
         result.append({
             "cidr": cidr,
-            "worker_group": (
-                0 if group_name == DIRECT_ROUTE
-                else groups.get(group_name)
-            ),
+            "worker_group": worker_group,
         })
 
     return result
@@ -175,3 +225,38 @@ def update_default_route(worker_group):
 
     utils.rds.set(settings.DEFAULT_ROUTE_REDIS_KEY, group.group_name)
     return {"worker_group": group.pk}
+
+
+def worker_group_has_routes(worker_group):
+    group_name = worker_group.group_name
+
+    # Доменные роуты
+    domain_routes = utils.rds.hgetall(settings.DOMAINS_REDIS_KEY)
+
+    for route_group in domain_routes.values():
+        if isinstance(route_group, bytes):
+            route_group = route_group.decode("utf-8")
+
+        if route_group == group_name:
+            return True
+
+    # CIDR-роуты
+    cidr_routes = utils.rds.hgetall(settings.CIDRS_REDIS_KEY)
+
+    for route_group in cidr_routes.values():
+        if isinstance(route_group, bytes):
+            route_group = route_group.decode("utf-8")
+
+        if route_group == group_name:
+            return True
+
+    # Маршрут по умолчанию
+    default_group = utils.rds.get(settings.DEFAULT_ROUTE_REDIS_KEY)
+
+    if isinstance(default_group, bytes):
+        default_group = default_group.decode("utf-8")
+
+    if default_group == group_name:
+        return True
+
+    return False

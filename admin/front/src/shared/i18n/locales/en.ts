@@ -16,7 +16,7 @@ export default {
     createdAt: "Created at",
     updatedAt: "Updated at",
     minPasswordSize: "Minimum 8 characters",
-    paginationTotal: "Total {{count}}",
+    paginationTotal: "Total {{total}}",
   },
 
   adminLayout: {

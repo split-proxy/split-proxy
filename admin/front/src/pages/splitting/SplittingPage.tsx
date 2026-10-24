@@ -38,6 +38,7 @@ import { getGroups } from "@/shared/api/groupApi";
 import {
   addCidrs,
   addDomains,
+  clearAllCidrs,
   deleteCidr,
   deleteDomain,
   getDefaultRoute,
@@ -233,6 +234,9 @@ export function SplittingPage() {
     useState(false);
 
   const [addingCidr, setAddingCidr] =
+    useState(false);
+
+  const [clearingAllCidrs, setClearingAllCidrs] =
     useState(false);
 
   /*
@@ -574,6 +578,52 @@ export function SplittingPage() {
     }
   };
 
+
+  /*
+   * --------------------------------------------------------------------------
+   * Clear all CIDR routes
+   * --------------------------------------------------------------------------
+   */
+
+  const handleClearAllCidrs = () => {
+    if (clearingAllCidrs) {
+      return;
+    }
+
+    Modal.confirm({
+      title: t("routingPage.clearAllCidrsTitle"),
+      content: t("routingPage.clearAllCidrsConfirm"),
+      okText: t("routingPage.clearAllCidrs"),
+      cancelText: t("common.cancel"),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setClearingAllCidrs(true);
+
+        try {
+          await clearAllCidrs();
+
+          setSelectedCidrs([]);
+          setBulkCidrGroup(undefined);
+          setCidrTotal(0);
+          message.success(t("routingPage.allCidrsCleared"));
+
+          if (cidrPage === 1) {
+            await loadCidrs();
+          } else {
+            setCidrPage(1);
+          }
+        } catch (e) {
+          message.error(
+            e instanceof Error
+              ? e.message
+              : t("routingPage.clearAllCidrsError"),
+          );
+        } finally {
+          setClearingAllCidrs(false);
+        }
+      },
+    });
+  };
 
   /*
    * --------------------------------------------------------------------------
@@ -940,6 +990,7 @@ export function SplittingPage() {
 
   const groupFilterOptions = [
     { value: "all", label: t("routingPage.allGroups") },
+    { value: "none", label: t("routingPage.noGroup") },
     ...defaultRouteOptions,
   ];
 
@@ -1396,48 +1447,58 @@ export function SplittingPage() {
             {t("routingPage.addCidrs")}
           </Typography.Text>
 
-          <Space
-            wrap
-            size={[12, 12]}
+          <div
             style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
               width: "100%",
+              flexWrap: "wrap",
             }}
           >
-            <Input.TextArea
-              value={newCidr}
-              placeholder="192.168.0.1/24"
-              style={{
-                width: 260,
-              }}
-              onChange={(event) =>
-                setNewCidr(event.target.value)
-              }
-            />
+            <Space wrap size={[12, 12]}>
+              <Input.TextArea
+                value={newCidr}
+                placeholder="192.168.0.1/24"
+                style={{ width: 260 }}
+                onChange={(event) =>
+                  setNewCidr(event.target.value)
+                }
+              />
 
-            <Select
-              value={cidrGroup ?? undefined}
-              placeholder={t("groupsPage.selectGroup")}
-              style={{
-                minWidth: 200,
-              }}
-              loading={loadingGroups}
-              options={defaultRouteOptions}
-              onChange={(value) =>
-                setCidrGroup(value ?? null)
-              }
-            />
+              <Select
+                value={cidrGroup ?? undefined}
+                placeholder={t("groupsPage.selectGroup")}
+                style={{ minWidth: 200 }}
+                loading={loadingGroups}
+                options={defaultRouteOptions}
+                onChange={(value) =>
+                  setCidrGroup(value ?? null)
+                }
+              />
+
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                loading={addingCidr}
+                onClick={() => void handleAddCidrs()}
+              >
+                {t("common.add")}
+              </Button>
+            </Space>
 
             <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              loading={addingCidr}
-              onClick={() =>
-                void handleAddCidrs()
-              }
+              danger
+              icon={<DeleteOutlined />}
+              loading={clearingAllCidrs}
+              disabled={loadingCidrs || addingCidr || clearingAllCidrs}
+              onClick={handleClearAllCidrs}
+              style={{ marginLeft: "auto" }}
             >
-              {t("common.add")}
+              {t("routingPage.clearAllCidrs")}
             </Button>
-          </Space>
+          </div>
         </Space>
       </Card>
 

@@ -240,6 +240,11 @@ export default {
     bulkDeletePartial: "Удалено маршрутов: {{succeeded}}; ошибок: {{failed}}.",
     bulkDeleteFailed: "Не удалось удалить выбранные маршруты.",
     selectedRoutes: "Выбрано: {{count}}",
-    clearSelection: "Снять выделение"
+    clearSelection: "Снять выделение",
+    clearAllCidrs: "Очистить все CIDR",
+    clearAllCidrsTitle: "Очистить все CIDR?",
+    clearAllCidrsConfirm: "Все CIDR-маршруты будут удалены. Это действие нельзя отменить.",
+    allCidrsCleared: "Все CIDR-маршруты удалены.",
+    clearAllCidrsError: "Не удалось очистить CIDR-маршруты."
   }
 };

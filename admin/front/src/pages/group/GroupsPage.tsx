@@ -97,21 +97,10 @@ export function GroupsPage() {
       setWorkers(response.results);
       setTotalWorkers(response.count);
 
-      const visibleGuids = new Set(
-        response.results.map((worker) => worker.guid),
-      );
-
-      // Сохраняем выделение между страницами, но убираем
-      // выделенные строки, которые исчезли с ранее загруженной страницы.
-      setSelectedWorkerGuids((prev) =>
-        prev.filter((guid) => {
-          const wasVisibleBefore = workers.some(
-            (worker) => worker.guid === guid,
-          );
-
-          return !wasVisibleBefore || visibleGuids.has(guid);
-        }),
-      );
+      // Важно: не очищаем selectedWorkerGuids здесь.
+      // Выбранные GUID должны сохраняться при переходе между страницами.
+      // Удаление выделения выполняется явно при смене фильтров
+      // и после успешного выполнения массовых операций.
     } catch {
       message.error(t("groupsPage.workersNotLoaded"));
     } finally {
@@ -193,6 +182,7 @@ export function GroupsPage() {
       return;
     }
 
+    const guids = [...selectedWorkerGuids];
     const groupId: number | null =
       bulkGroup === "__none__" ? null : bulkGroup;
 
@@ -200,20 +190,19 @@ export function GroupsPage() {
 
     try {
       const results = await Promise.allSettled(
-        selectedWorkerGuids.map((guid) =>
-          updateWorker(guid, { group: groupId }),
-        ),
+        guids.map((guid) => updateWorker(guid, { group: groupId })),
       );
 
-      const succeeded = results.filter(
-        (result) => result.status === "fulfilled",
-      ).length;
+      const succeededGuids = guids.filter(
+        (_, index) => results[index].status === "fulfilled",
+      );
 
+      const succeeded = succeededGuids.length;
       const failed = results.length - succeeded;
 
       setWorkers((prev) =>
         prev.map((worker) => {
-          const index = selectedWorkerGuids.indexOf(worker.guid);
+          const index = guids.indexOf(worker.guid);
 
           if (
             index === -1 ||
@@ -226,7 +215,12 @@ export function GroupsPage() {
         }),
       );
 
-      setSelectedWorkerGuids([]);
+      // Убираем из выделения только успешно обновлённые записи.
+      // Если какие-то запросы упали, их GUID остаются выделенными.
+      setSelectedWorkerGuids((prev) =>
+        prev.filter((guid) => !succeededGuids.includes(guid)),
+      );
+
       setBulkGroup(undefined);
 
       if (failed === 0) {
@@ -301,11 +295,7 @@ export function GroupsPage() {
             );
           }
 
-          const remaining = Math.max(
-            0,
-            totalWorkers - succeeded,
-          );
-
+          const remaining = Math.max(0, totalWorkers - succeeded);
           const lastPage = Math.max(
             1,
             Math.ceil(remaining / pageSize),

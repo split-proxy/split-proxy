@@ -495,3 +495,17 @@ class ConfigAPIView(APIView):
         return Response({
             "default_group_name": settings.DEFAULT_GROUP_NAME,
         })
+
+
+@extend_schema(tags=["CIDR methods"])
+class ClearCIDRRoutesAPIView(APIView):
+    def delete(self, request, *args, **kwargs):
+        deleted = services.delete_all_cidr_routes()
+
+        return Response(
+            {
+                "detail": "All CIDR routes have been deleted.",
+                "deleted": bool(deleted),
+            },
+            status=status.HTTP_200_OK,
+        )

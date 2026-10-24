@@ -90,6 +90,12 @@ export const deleteCidr = (cidr: string) =>
     method: "DELETE",
   });
 
+/** Deletes all CIDR routes on the backend, regardless of current filters/page. */
+export const clearAllCidrs = () =>
+  apiFetch("/routing/clear_cidr", {
+    method: "DELETE",
+  });
+
 export const getDefaultRoute = (): Promise<DefaultRoute> =>
   apiFetch("/routing/default", { method: "GET" });
 
@@ -100,4 +106,3 @@ export const updateDefaultRoute = (
     method: "PATCH",
     body: JSON.stringify({ worker_group }),
   });
-

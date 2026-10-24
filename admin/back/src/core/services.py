@@ -269,3 +269,7 @@ def worker_group_has_routes(worker_group):
         return True
 
     return False
+
+
+def delete_all_cidr_routes():
+    return utils.rds.delete(settings.CIDRS_REDIS_KEY)

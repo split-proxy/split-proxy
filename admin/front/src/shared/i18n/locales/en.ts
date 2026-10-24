@@ -245,6 +245,11 @@ export default {
     bulkDeletePartial: "Deleted {{succeeded}} routes; {{failed}} failed.",
     bulkDeleteFailed: "Could not delete the selected routes.",
     selectedRoutes: "Selected: {{count}}",
-    clearSelection: "Clear selection"
+    clearSelection: "Clear selection",
+    clearAllCidrs: "Clear all CIDRs",
+    clearAllCidrsTitle: "Clear all CIDR routes?",
+    clearAllCidrsConfirm: "Are you sure you want to delete all CIDR routes? This action cannot be undone.",
+    allCidrsCleared: "All CIDR routes have been deleted successfully.",
+    clearAllCidrsError: "Failed to delete CIDR routes."
   },
 };

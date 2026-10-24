@@ -990,7 +990,6 @@ export function SplittingPage() {
 
   const groupFilterOptions = [
     { value: "all", label: t("routingPage.allGroups") },
-    { value: "none", label: t("routingPage.noGroup") },
     ...defaultRouteOptions,
   ];
 

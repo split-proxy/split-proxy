@@ -28,14 +28,13 @@ const (
 
 const (
 	MaxPacketData      = 32 * 1024
-	SessionWriteQueue  = 128
+	SessionWriteQueue  = 512
 	BrokerWriteQueue   = 8192
 	BrokerReadTimeout  = 60 * time.Second
 	BrokerWriteTimeout = 10 * time.Second
 	TargetDialTimeout  = 10 * time.Second
 	TargetWriteTimeout = 30 * time.Second
 
-	// Reconnect backoff.
 	BrokerReconnectInitial = 500 * time.Millisecond
 	BrokerReconnectMax     = 30 * time.Second
 	BrokerReconnectJitter  = 0.25
@@ -150,6 +149,13 @@ type WorkerHello struct {
 type brokerWriterMessage struct {
 	messageType int
 	data        []byte
+	pooled      bool // data came from packetBufferPool and must be returned after WriteMessage
+}
+
+var packetBufferPool = sync.Pool{
+	New: func() any {
+		return make([]byte, 37+MaxPacketData)
+	},
 }
 
 var brokerAddr string
@@ -288,13 +294,6 @@ func reconnectDelay(base time.Duration) time.Duration {
 		return 0
 	}
 
-	// Jitter is ±25%.
-	//
-	// base = 1s
-	// result ∈ [750ms, 1250ms]
-	//
-	// This prevents multiple workers from reconnecting
-	// at exactly the same time after a Broker outage.
 	jitter := float64(base) * BrokerReconnectJitter
 
 	minDelay := float64(base) - jitter
@@ -306,7 +305,6 @@ func reconnectDelay(base time.Duration) time.Duration {
 
 	delay := minDelay + rand.Float64()*(maxDelay-minDelay)
 
-	// BrokerReconnectMax is the absolute upper limit.
 	if delay > float64(BrokerReconnectMax) {
 		delay = float64(BrokerReconnectMax)
 	}
@@ -387,7 +385,6 @@ func handleBrokerConnection(
 		})
 	}
 
-	// Shutdown context должен немедленно закрыть WS.
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -560,10 +557,13 @@ func brokerWriter(
 				return
 			}
 
-			if err := ws.WriteMessage(
-				msg.messageType,
-				msg.data,
-			); err != nil {
+			err := ws.WriteMessage(msg.messageType, msg.data)
+
+			if msg.pooled {
+				packetBufferPool.Put(msg.data[:cap(msg.data)])
+			}
+
+			if err != nil {
 				warnf(
 					"[WORKER] broker write failed: %v",
 					err,
@@ -837,8 +837,6 @@ func enqueueSessionWrite(
 
 	session := value.(*Session)
 
-	payload := append([]byte(nil), data...)
-
 	select {
 	case <-done:
 		return
@@ -846,8 +844,7 @@ func enqueueSessionWrite(
 	case <-session.done:
 		return
 
-	case session.writeCh <- payload:
-		// queued
+	case session.writeCh <- data:
 
 	default:
 		warnf(
@@ -1095,25 +1092,33 @@ func sendPacket(
 		return false
 	}
 
-	buf := make([]byte, 37+len(data))
+	pooled := len(data) <= MaxPacketData
+	var buf []byte
+	if pooled {
+		buf = packetBufferPool.Get().([]byte)[:37+len(data)]
+	} else {
+		buf = make([]byte, 37+len(data))
+	}
 
 	copy(buf[:36], id)
 	buf[36] = cmd
-
-	if len(data) > 0 {
-		copy(buf[37:], data)
-	}
+	copy(buf[37:], data)
 
 	msg := brokerWriterMessage{
 		messageType: websocket.BinaryMessage,
 		data:        buf,
+		pooled:      pooled,
 	}
 
 	select {
 	case <-done:
+		if pooled {
+			packetBufferPool.Put(buf[:cap(buf)])
+		}
 		return false
 
 	case send <- msg:
 		return true
 	}
 }
+

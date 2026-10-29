@@ -651,6 +651,12 @@ func resolveCIDRRoute(host string, cache RouteCache) (Route, bool) {
 func ResolveRoute(host string) Route {
 	host = strings.ToLower(strings.TrimSpace(host))
 
+  if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+  }
+
+  host = strings.TrimSuffix(host, ".")
+
 	if host == "" {
 		warnf("[ROUTE] empty host, using direct route")
 		return RouteDirect

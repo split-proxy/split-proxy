@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
 	"context"
 	"net"
 	"net/netip"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -311,11 +311,11 @@ func newDNSCache(
 	}
 
 	c := &DNSCache{
-		entries:    make(map[string]dnsCacheEntry),
-		maxEntries: maxEntries,
-		ttl:        ttl,
+		entries:     make(map[string]dnsCacheEntry),
+		maxEntries:  maxEntries,
+		ttl:         ttl,
 		negativeTTL: negativeTTL,
-		stop:       make(chan struct{}),
+		stop:        make(chan struct{}),
 	}
 
 	go c.cleanupLoop()
@@ -905,6 +905,10 @@ func loadRoutes() error {
 
 	routes.Store(newCache)
 
+	lastRoutesSyncSuccessTimestamp.Set(
+		float64(time.Now().Unix()),
+	)
+
 	infof(
 		"[ROUTE] routes loaded successfully exact=%d wildcard=%d cidrs=%d default=%s",
 		exactDomainCount,
@@ -925,7 +929,7 @@ func init() {
 	routes.Store(RouteCache{
 		Domains:         make(map[string]Route),
 		WildcardDomains: newDomainTrie(),
-		CIDRs:            &CIDRTrie{},
+		CIDRs:           &CIDRTrie{},
 		DNS:             dnsCache,
 		DefaultRoute:    RouteDirect,
 	})

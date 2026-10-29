@@ -382,6 +382,7 @@ func handleBroker(
 	method,
 	host string,
 	route Route,
+	username string,
 	onConnected func() error,
 ) {
 	remoteAddr := client.RemoteAddr().String()
@@ -470,6 +471,7 @@ func handleBroker(
 					)
 					return
 				}
+				recordTraffic(username, "client_to_target", "worker", n)
 			}
 
 			if err != nil {
@@ -501,6 +503,7 @@ func handleBroker(
 				)
 				return
 			}
+			recordTraffic(username, "target_to_client", "worker", len(msg))
 		}
 	}
 }

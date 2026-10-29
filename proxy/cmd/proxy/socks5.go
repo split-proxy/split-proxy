@@ -169,6 +169,7 @@ func handleSOCKS5(
 	}
 
 	// Предпочитаем USERNAME/PASSWORD.
+	var username string
 	if containsByte(methods, 0x02) {
 		infof(
 			"[SOCKS5] selecting username/password authentication remote=%s",
@@ -191,14 +192,15 @@ func handleSOCKS5(
 			client,
 			reader,
 			authStore,
+			&username,
 		); err != nil {
-			warnf(
-				"[SOCKS5] authentication failed remote=%s: %v",
-				remoteAddr,
-				err,
-			)
+			authFailures.WithLabelValues("socks5").Inc()
+
+			// Оставь существующую обработку ошибки.
 			return
 		}
+
+		defer trackAuthenticatedUser(username, client)()
 
 		infof(
 			"[SOCKS5] authentication successful remote=%s",
@@ -252,6 +254,7 @@ func handleSOCKS5(
 			client,
 			reader,
 			req,
+			username,
 		)
 
 		infof(
@@ -267,7 +270,7 @@ func handleSOCKS5(
 			remoteAddr,
 		)
 
-		handleSOCKS5UDPAssociate(client)
+		handleSOCKS5UDPAssociate(client, username)
 
 		infof(
 			"[SOCKS5] UDP ASSOCIATE handler finished remote=%s",
@@ -305,6 +308,7 @@ func handleSOCKS5Connect(
 	client net.Conn,
 	reader *bufio.Reader,
 	req *SOCKS5Request,
+	username string,
 ) {
 	remoteAddr := client.RemoteAddr().String()
 
@@ -330,21 +334,22 @@ func handleSOCKS5Connect(
 		)
 
 		handleDirect(
-				&BufferedConn{
-					Conn:   client,
-					reader: reader,
-				},
-				address,
-				func() error {
-					infof(
-						"[SOCKS5] CONNECT established remote=%s target=%s",
-						remoteAddr,
-						address,
-					)
+			&BufferedConn{
+				Conn:   client,
+				reader: reader,
+			},
+			address,
+			username,
+			func() error {
+				infof(
+					"[SOCKS5] CONNECT established remote=%s target=%s",
+					remoteAddr,
+					address,
+				)
 
-					return writeSOCKS5Success(client)
-				},
-			)
+				return writeSOCKS5Success(client)
+			},
+		)
 
 		infof(
 			"[SOCKS5] direct CONNECT finished remote=%s target=%s",
@@ -368,6 +373,7 @@ func handleSOCKS5Connect(
 		"CONNECT",
 		address,
 		route,
+		username,
 		func() error {
 			err := writeSOCKS5Success(client)
 
@@ -404,6 +410,7 @@ func authenticateSOCKS5(
 	client net.Conn,
 	reader *bufio.Reader,
 	authStore *AuthStore,
+	usernameOut *string,
 ) error {
 
 	// SOCKS5 Username/Password Authentication
@@ -471,6 +478,10 @@ func authenticateSOCKS5(
 		return fmt.Errorf(
 			"invalid credentials",
 		)
+	}
+
+	if usernameOut != nil {
+		*usernameOut = username
 	}
 
 	_, err = client.Write([]byte{

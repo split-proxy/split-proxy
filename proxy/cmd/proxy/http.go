@@ -113,17 +113,17 @@ func handleHTTPProxy(
 		req.Host,
 	)
 
-	if !authStore.CheckAuth(req) {
-		warnf(
-			"[HTTP] authentication failed remote=%s method=%s host=%s",
-			remoteAddr,
-			req.Method,
-			req.Host,
-		)
+	username, authenticated := authStore.CheckAuthUser(req)
 
+	if !authenticated {
+		authFailures.WithLabelValues("http").Inc()
+
+		// Оставь существующую обработку ошибки авторизации.
 		writeProxyAuthRequired(client)
 		return
 	}
+
+	defer trackAuthenticatedUser(username, client)()
 
 	infof(
 		"[HTTP] authentication successful remote=%s",
@@ -170,6 +170,7 @@ func handleHTTPProxy(
 					reader: reader,
 				},
 				address,
+				username,
 				func() error {
 					infof(
 						"[HTTP] CONNECT established remote=%s target=%s",
@@ -207,6 +208,7 @@ func handleHTTPProxy(
 			req.Method,
 			address,
 			route,
+			username,
 			func() error {
 				infof(
 					"[HTTP] CONNECT established remote=%s target=%s route=%s",

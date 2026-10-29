@@ -7,6 +7,13 @@ import (
 )
 
 func main() {
+	if metricsEnabled() {
+		initMetrics()
+		startMetrics()
+		infof("[METRICS] enabled")
+	} else {
+		infof("[METRICS] disabled")
+	}
 	ln, err := net.Listen("tcp4", listenAddr)
 	if err != nil {
 		errorf("[PROXY] failed to listen addr=%s: %v", listenAddr, err)
@@ -22,6 +29,7 @@ func main() {
 
 		for range ticker.C {
 			if err := loadRoutes(); err != nil {
+				syncErrors.WithLabelValues("routes").Inc()
 				warnf("[PROXY] failed to reload routes: %v", err)
 			} else {
 				debugf("[PROXY] routes reloaded")
@@ -30,9 +38,9 @@ func main() {
 	}()
 
 	u := url.URL{
-			Scheme: "postgres",
-			Host:   net.JoinHostPort(dbHost, dbPort),
-			Path:   dbName,
+		Scheme: "postgres",
+		Host:   net.JoinHostPort(dbHost, dbPort),
+		Path:   dbName,
 	}
 	u.User = url.UserPassword(dbUser, dbPassword)
 
@@ -42,6 +50,7 @@ func main() {
 		return
 	}
 	defer authStore.Close()
+	go startDependencyMetrics(ctx, authStore)
 
 	infof("[PROXY] starting auth sync")
 	authStore.StartSync(ctx)
@@ -51,14 +60,18 @@ func main() {
 	for {
 		c, err := ln.Accept()
 		if err != nil {
+			socketOpenErrors.WithLabelValues("accept").Inc()
 			debugf("[PROXY] accept failed: %v", err)
 			continue
 		}
+
+		acceptedConnections.Inc()
 
 		remoteAddr := c.RemoteAddr().String()
 
 		select {
 		case connSem <- struct{}{}:
+			activeConnections.Inc()
 			debugf(
 				"[PROXY] connection accepted remote=%s",
 				remoteAddr,
@@ -66,6 +79,7 @@ func main() {
 
 			go func() {
 				defer func() {
+					activeConnections.Dec()
 					<-connSem
 				}()
 
@@ -73,6 +87,7 @@ func main() {
 			}()
 
 		default:
+			rejectedConnections.Inc()
 			warnf(
 				"[PROXY] connection limit reached, rejecting remote=%s",
 				remoteAddr,

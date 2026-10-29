@@ -3,11 +3,13 @@ package main
 import (
 	"io"
 	"net"
+	"time"
 )
 
 func handleDirect(
 	client net.Conn,
 	address string,
+	username string,
 	onConnected func() error,
 ) {
 	remoteAddr := client.RemoteAddr().String()
@@ -18,8 +20,14 @@ func handleDirect(
 		address,
 	)
 
+	dialStarted := time.Now()
 	server, resolvedIP, err := dialDirectTarget(address)
+	targetConnectDuration.WithLabelValues("direct").Observe(time.Since(dialStarted).Seconds())
+
 	if err != nil {
+		connectionErrors.
+			WithLabelValues("target_connect", "direct").
+			Inc()
 		warnf(
 			"[DIRECT] connection failed remote=%s target=%s: %v",
 			remoteAddr,
@@ -59,8 +67,19 @@ func handleDirect(
 	done := make(chan struct{}, 2)
 
 	go func() {
-		_, err := io.Copy(server, client)
+		_, err := io.Copy(
+			&metricWriteConn{
+				Conn:      server,
+				username:  username,
+				direction: "client_to_target",
+				path:      "direct",
+			},
+			client,
+		)
 		if err != nil {
+			connectionErrors.
+				WithLabelValues("transfer_read", "direct").
+				Inc()
 			debugf(
 				"[DIRECT] client->server copy finished remote=%s target=%s: %v",
 				remoteAddr,
@@ -73,8 +92,19 @@ func handleDirect(
 	}()
 
 	go func() {
-		_, err := io.Copy(client, server)
+		_, err := io.Copy(
+			&metricWriteConn{
+				Conn:      client,
+				username:  username,
+				direction: "target_to_client",
+				path:      "direct",
+			},
+			server,
+		)
 		if err != nil {
+			connectionErrors.
+				WithLabelValues("transfer_read", "direct").
+				Inc()
 			debugf(
 				"[DIRECT] server->client copy finished remote=%s target=%s: %v",
 				remoteAddr,

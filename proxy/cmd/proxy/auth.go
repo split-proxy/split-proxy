@@ -413,13 +413,16 @@ func (s *AuthStore) StartSync(ctx context.Context) {
 						"[AUTH] sync failed: %v",
 						err,
 					)
+					syncErrors.WithLabelValues("users").Inc()
+				} else {
+					lastUsersSyncSuccessTimestamp.Set(float64(time.Now().Unix()))
 				}
 			}
 		}
 	}()
 }
 
-func (s *AuthStore) CheckAuth(req *http.Request) bool {
+func (s *AuthStore) CheckAuthUser(req *http.Request) (string, bool) {
 	values := req.Header.Values("Proxy-Authorization")
 
 	if len(values) != 1 {
@@ -427,7 +430,7 @@ func (s *AuthStore) CheckAuth(req *http.Request) bool {
 			"[AUTH] invalid Proxy-Authorization header count=%d",
 			len(values),
 		)
-		return false
+		return "", false
 	}
 
 	scheme, encoded, ok := strings.Cut(
@@ -436,13 +439,13 @@ func (s *AuthStore) CheckAuth(req *http.Request) bool {
 	)
 	if !ok || !strings.EqualFold(scheme, "Basic") {
 		debugf("[AUTH] unsupported Proxy-Authorization scheme")
-		return false
+		return "", false
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
 		debugf("[AUTH] invalid Basic authorization encoding")
-		return false
+		return "", false
 	}
 
 	username, password, ok := strings.Cut(
@@ -451,7 +454,7 @@ func (s *AuthStore) CheckAuth(req *http.Request) bool {
 	)
 	if !ok {
 		debugf("[AUTH] invalid Basic authorization format")
-		return false
+		return "", false
 	}
 
 	ok = s.CheckCredentials(
@@ -471,6 +474,11 @@ func (s *AuthStore) CheckAuth(req *http.Request) bool {
 		)
 	}
 
+	return username, ok
+}
+
+func (s *AuthStore) CheckAuth(req *http.Request) bool {
+	_, ok := s.CheckAuthUser(req)
 	return ok
 }
 

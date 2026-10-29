@@ -71,15 +71,15 @@ func (s *UDPBrokerSession) isClosed() bool {
 	return s.closed
 }
 
-func handleSOCKS5UDPAssociate(client net.Conn) {
+func handleSOCKS5UDPAssociate(client net.Conn, username string) {
+	activeUDPSessions.Inc()
+	defer activeUDPSessions.Dec()
 	remoteAddr := client.RemoteAddr().String()
 
 	infof(
 		"[SOCKS5] UDP ASSOCIATE started remote=%s",
 		remoteAddr,
 	)
-
-	// 1. Создаём постоянный UDP relay socket.
 
 	udpConn, _, err := listenUDPInRange(
 		UDPRelayMinPort,
@@ -102,8 +102,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 		remoteAddr,
 		localAddr,
 	)
-
-	// 2. Адрес, который отдаём SOCKS5 клиенту.
 
 	relayAddr := &net.UDPAddr{
 		IP:   net.ParseIP(UDPRelayHost),
@@ -129,24 +127,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 		relayAddr,
 	)
 
-	// 3. Адрес SOCKS5 клиента.
-	//
-	// Первый UDP-пакет привязывает ASSOCIATE session к source IP:port.
-	// После этого UDP-пакеты от другого source не принимаются.
-	//
-	// Это намеренно IP:port binding, а не только IP binding:
-	//
-	//   first:
-	//     203.0.113.25:52143 -> bind
-	//
-	//   subsequent:
-	//     203.0.113.25:52143 -> ACCEPT
-	//     203.0.113.25:52144 -> REJECT
-	//     198.51.100.10:12345 -> REJECT
-	//
-	// При смене сети (например Wi-Fi -> mobile) IP изменится,
-	// поэтому клиент должен создать новый UDP ASSOCIATE.
-
 	var clientUDPAddr *net.UDPAddr
 	var clientAddrMu sync.RWMutex
 
@@ -157,8 +137,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 
 		clientAddrMu.Lock()
 		defer clientAddrMu.Unlock()
-
-		// Первый UDP-пакет привязывает session к client IP:port.
 
 		if clientUDPAddr == nil {
 			clientUDPAddr = &net.UDPAddr{
@@ -175,11 +153,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 
 			return true
 		}
-
-		// После binding разрешаем только тот же IP:port.
-		//
-		// Source port важен: два клиента за одним NAT могут иметь
-		// один публичный IP, но разные UDP source ports.
 
 		if !clientUDPAddr.IP.Equal(addr.IP) ||
 			clientUDPAddr.Port != addr.Port ||
@@ -212,17 +185,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 		}
 	}
 
-	// 4. UDP sessions.
-	//
-	// Одна broker session = один route + target.
-	// Одна direct session = один concrete IP + port.
-	//
-	// Для DIRECT hostname сначала разрешается DNS:
-	//
-	// hostname -> DNS cache -> allowed IPs -> concrete IP:port
-	//
-	// После этого session работает только с concrete IP:port.
-
 	var sessionsMu sync.Mutex
 
 	brokerSessions := make(map[string]*UDPBrokerSession)
@@ -254,18 +216,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 
 	defer closeAllSessions()
 
-	// 5. DNS + DIRECT target policy.
-	//
-	// Вариант 2:
-	//
-	// Если hostname имеет несколько IP:
-	//
-	//     IP1 private       -> reject
-	//     IP2 public        -> allow
-	//     IP3 public        -> allow
-	//
-	// Используются только разрешённые адреса.
-
 	resolveDirectUDPTargets := func(
 		host string,
 	) ([]netip.Addr, error) {
@@ -277,10 +227,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			)
 		}
 
-		// Literal IP.
-		//
-		// DNS не нужен.
-
 		if ip, err := netip.ParseAddr(host); err == nil {
 			ip = ip.Unmap()
 
@@ -290,11 +236,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 
 			return []netip.Addr{ip}, nil
 		}
-
-		// Hostname.
-		//
-		// Используем существующий DNS cache.
-		// Это тот же cache, который используется routing.go.
 
 		ips, ok := dnsCache.lookup(host)
 		if !ok {
@@ -346,13 +287,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 		return allowed, nil
 	}
 
-	// 6. Создание DIRECT UDP session.
-	//
-	// ВАЖНО:
-	//
-	// target здесь обязан быть concrete IP:port.
-	// DNS lookup внутри этой функции отсутствует.
-
 	getOrCreateDirectSession := func(
 		target string,
 	) (*UDPDirectSession, error) {
@@ -393,8 +327,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			)
 		}
 
-		// После DNS resolution здесь должен быть именно IP.
-
 		targetIP, err := netip.ParseAddr(host)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -404,12 +336,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 		}
 
 		targetIP = targetIP.Unmap()
-
-		// Повторная проверка является намеренной.
-		//
-		// Даже если target пришёл из resolveDirectUDPTargets(),
-		// session creation не должна позволять создать socket
-		// на запрещённом адресе.
 
 		if err := validateDirectTargetIP(targetIP); err != nil {
 			return nil, err
@@ -428,10 +354,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			Port: port,
 		}
 
-		// Здесь используется concrete IP.
-		//
-		// net.DialUDP() не выполняет дополнительный DNS lookup.
-
 		conn, err := net.DialUDP(
 			"udp",
 			nil,
@@ -449,8 +371,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			conn:   conn,
 			target: target,
 		}
-
-		// Защита от duplicate session.
 
 		sessionsMu.Lock()
 
@@ -482,8 +402,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			target,
 			conn.LocalAddr(),
 		)
-
-		// Читаем destination -> proxy.
 
 		go func() {
 			defer func() {
@@ -564,6 +482,7 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 					)
 					return
 				}
+				recordTraffic(username, "target_to_client", "direct", n)
 
 				debugf(
 					"[UDP] direct -> client remote=%s target=%s source=%s client=%s bytes=%d",
@@ -592,14 +511,15 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			)
 		}
 
-		if _, err := session.conn.Write(payload); err != nil {
+		n, err := session.conn.Write(payload)
+		recordTraffic(username, "client_to_target", "direct", n)
+
+		if err != nil {
 			return err
 		}
 
 		return nil
 	}
-
-	// 7. Создание BROKER UDP session.
 
 	getOrCreateBrokerSession := func(
 		route Route,
@@ -651,8 +571,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			target: target,
 		}
 
-		// Защита от duplicate session.
-
 		sessionsMu.Lock()
 
 		if existing, ok := brokerSessions[key]; ok {
@@ -684,8 +602,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			route,
 			target,
 		)
-
-		// Читаем broker -> proxy.
 
 		go func() {
 			defer func() {
@@ -775,6 +691,7 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 						)
 						return
 					}
+					recordTraffic(username, "target_to_client", "worker", len(payload))
 
 					debugf(
 						"[UDP] broker -> client remote=%s target=%s client=%s bytes=%d",
@@ -789,8 +706,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 
 		return session, nil
 	}
-
-	// 8. Следим за TCP control connection.
 
 	tcpDone := make(chan struct{})
 
@@ -811,8 +726,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			}
 		}
 	}()
-
-	// 9. UDP relay loop.
 
 	buffer := make([]byte, 64*1024)
 
@@ -863,9 +776,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			continue
 		}
 
-		// Первый UDP packet привязывает session к source IP:port.
-		// Последующие packets от другого source отклоняются.
-
 		if !bindClientUDPAddr(src) {
 			continue
 		}
@@ -883,14 +793,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			len(packet.Payload),
 		)
 
-		// Определяем route.
-		//
-		// ВАЖНО:
-		//
-		// ResolveRoute() используется для routing decision.
-		// DIRECT target policy применяется только после определения
-		// RouteDirect.
-
 		route := ResolveRoute(packet.Host)
 
 		infof(
@@ -900,28 +802,7 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			target,
 		)
 
-		// ============================================================
-		// DIRECT UDP
-		// ============================================================
-
 		if route == RouteDirect {
-			// Вариант 2:
-			//
-			// hostname
-			//     ↓
-			// DNS cache
-			//     ↓
-			// [IP1, IP2, IP3]
-			//     ↓
-			// validateDirectTargetIP()
-			//     ↓
-			// [allowed IP1, allowed IP3]
-			//     ↓
-			// concrete UDP sessions
-			//
-			// Private/internal адреса здесь запрещены.
-			// Worker/Broker route это ограничение не получает.
-
 			allowedIPs, err := resolveDirectUDPTargets(
 				packet.Host,
 			)
@@ -1016,15 +897,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			continue
 		}
 
-		// ============================================================
-		// BROKER UDP
-		// ============================================================
-		//
-		// НЕ вызываем validateDirectTargetIP().
-		//
-		// Worker является доверенной точкой выхода и должен иметь
-		// возможность обращаться к private/internal targets.
-
 		session, err := getOrCreateBrokerSession(
 			route,
 			target,
@@ -1086,6 +958,8 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 			continue
 		}
 
+		recordTraffic(username, "client_to_target", "worker", len(packet.Payload))
+
 		debugf(
 			"[UDP] payload sent via broker remote=%s route=%s target=%s bytes=%d",
 			remoteAddr,
@@ -1095,8 +969,6 @@ func handleSOCKS5UDPAssociate(client net.Conn) {
 		)
 	}
 }
-
-// UDP LISTENER
 
 func listenUDPInRange(
 	minPort,
@@ -1128,8 +1000,6 @@ func listenUDPInRange(
 	)
 }
 
-// SOCKS5 UDP RESPONSE
-
 func buildSOCKS5UDPResponseFromTarget(
 	target string,
 	payload []byte,
@@ -1145,8 +1015,6 @@ func buildSOCKS5UDPResponseFromTarget(
 	}
 
 	ip := net.ParseIP(host)
-
-	// IPv4.
 
 	if ip4 := ip.To4(); ip4 != nil {
 		result := make(
@@ -1185,8 +1053,6 @@ func buildSOCKS5UDPResponseFromTarget(
 		return result
 	}
 
-	// IPv6.
-
 	if ip6 := ip.To16(); ip6 != nil {
 		result := make(
 			[]byte,
@@ -1220,8 +1086,6 @@ func buildSOCKS5UDPResponseFromTarget(
 
 		return result
 	}
-
-	// DOMAIN.
 
 	if len(host) > 255 {
 		return nil
@@ -1261,8 +1125,6 @@ func buildSOCKS5UDPResponseFromTarget(
 	return result
 }
 
-// SOCKS5 UDP response for direct routing.
-
 func buildSOCKS5UDPResponse(
 	addr *net.UDPAddr,
 	payload []byte,
@@ -1270,8 +1132,6 @@ func buildSOCKS5UDPResponse(
 	if addr == nil {
 		return nil
 	}
-
-	// IPv4.
 
 	if ip4 := addr.IP.To4(); ip4 != nil {
 		result := make(
@@ -1310,8 +1170,6 @@ func buildSOCKS5UDPResponse(
 		return result
 	}
 
-	// IPv6.
-
 	if ip6 := addr.IP.To16(); ip6 != nil {
 		result := make(
 			[]byte,
@@ -1349,8 +1207,6 @@ func buildSOCKS5UDPResponse(
 	return nil
 }
 
-// SOCKS5 UDP ASSOCIATE RESPONSE
-
 func writeSOCKS5UDPAssociateSuccess(
 	client net.Conn,
 	addr *net.UDPAddr,
@@ -1383,8 +1239,6 @@ func writeSOCKS5UDPAssociateSuccess(
 	return err
 }
 
-// SOCKS5 UDP REQUEST PARSER
-
 func parseSOCKS5UDPRequest(
 	data []byte,
 ) (*SOCKS5UDPPacket, error) {
@@ -1394,15 +1248,11 @@ func parseSOCKS5UDPRequest(
 		)
 	}
 
-	// RSV.
-
 	if data[0] != 0x00 || data[1] != 0x00 {
 		return nil, fmt.Errorf(
 			"invalid SOCKS5 UDP RSV",
 		)
 	}
-
-	// FRAG.
 
 	if data[2] != 0x00 {
 		return nil, fmt.Errorf(
@@ -1418,8 +1268,6 @@ func parseSOCKS5UDPRequest(
 
 	switch packet.ATYP {
 	case 0x01:
-		// IPv4.
-
 		if len(data) < offset+4 {
 			return nil, fmt.Errorf(
 				"invalid IPv4 address",
@@ -1433,8 +1281,6 @@ func parseSOCKS5UDPRequest(
 		offset += 4
 
 	case 0x03:
-		// DOMAIN.
-
 		if len(data) < offset+1 {
 			return nil, fmt.Errorf(
 				"missing domain length",
@@ -1457,8 +1303,6 @@ func parseSOCKS5UDPRequest(
 		offset += length
 
 	case 0x04:
-		// IPv6.
-
 		if len(data) < offset+16 {
 			return nil, fmt.Errorf(
 				"invalid IPv6 address",
@@ -1478,11 +1322,9 @@ func parseSOCKS5UDPRequest(
 		)
 	}
 
-	// PORT.
-
 	if len(data) < offset+2 {
 		return nil, fmt.Errorf(
-		"missing port",
+			"missing port",
 		)
 	}
 
@@ -1491,8 +1333,6 @@ func parseSOCKS5UDPRequest(
 	)
 
 	offset += 2
-
-	// PAYLOAD.
 
 	packet.Payload = data[offset:]
 
